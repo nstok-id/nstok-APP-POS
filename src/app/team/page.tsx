@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth, Role, UserAccount } from "@/context/AuthContext";
+import { HeaderKasir } from "@/components/HeaderKasir";
 import { 
   UsersRound, 
   Mail, 
@@ -9,427 +12,427 @@ import {
   UserCheck, 
   UserX, 
   Trash2, 
-  Copy, 
-  Check, 
-  Share2, 
-  Shield, 
-  Clock, 
-  AlertTriangle 
+  ShieldCheck, 
+  Crown, 
+  Key, 
+  Users, 
+  Phone, 
+  AlertCircle, 
+  CheckCircle2, 
+  X, 
+  ArrowLeft,
+  Loader2,
+  Info,
+  Search
 } from "lucide-react";
-import { HeaderKasir } from "@/components/HeaderKasir";
-import { useAuth, Role } from "@/context/AuthContext";
-import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
-import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, Badge } from "@/components/ui/atoms";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-
-interface MemberItem {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  isActive: boolean;
-  joinedAt: string;
-}
-
-interface InviteItem {
-  id: string;
-  email: string;
-  role: Role;
-  token: string;
-  inviteLink: string;
-  status: "PENDING" | "ACCEPTED" | "REVOKED";
-  expiresAt: string;
-}
-
-const INITIAL_MEMBERS: MemberItem[] = [
-  {
-    id: "mem-1",
-    name: "Bambang Pamungkas",
-    email: "owner@omnipos.id",
-    role: "OWNER",
-    isActive: true,
-    joinedAt: "12 Jan 2026",
-  },
-  {
-    id: "mem-2",
-    name: "Siti Rahmawati",
-    email: "manager@omnipos.id",
-    role: "MANAGER",
-    isActive: true,
-    joinedAt: "15 Jan 2026",
-  },
-  {
-    id: "mem-3",
-    name: "Dimas Anggara",
-    email: "spv@omnipos.id",
-    role: "SUPERVISOR",
-    isActive: true,
-    joinedAt: "01 Feb 2026",
-  },
-  {
-    id: "mem-4",
-    name: "Rian Kasir Pagi",
-    email: "rian@omnipos.id",
-    role: "KASIR",
-    isActive: true,
-    joinedAt: "10 Feb 2026",
-  },
-];
-
-const INITIAL_INVITES: InviteItem[] = [
-  {
-    id: "inv-1",
-    email: "kasir2@toko.com",
-    role: "KASIR",
-    token: "INV-98218-ABC",
-    inviteLink: "http://localhost:3000/accept-invite?token=INV-98218-ABC",
-    status: "PENDING",
-    expiresAt: "25 Sep 2026",
-  },
-];
 
 export default function TeamPage() {
-  const { user, canAccess } = useAuth();
-  const { settings } = useWorkspaceSettings();
+  const router = useRouter();
+  const { 
+    user, 
+    isLoading: authLoading, 
+    getWorkspaceTeamMembers, 
+    createStaffMember, 
+    toggleStaffStatus, 
+    deleteStaffMember 
+  } = useAuth();
 
-  const [members, setMembers] = useState<MemberItem[]>([]);
-  const [invites, setInvites] = useState<InviteItem[]>([]);
+  const [members, setMembers] = useState<UserAccount[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("ALL");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Modals
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [offboardModalOpen, setOffboardModalOpen] = useState(false);
-  const [targetMember, setTargetMember] = useState<MemberItem | null>(null);
-  const [offboardReason, setOffboardReason] = useState("");
-  const [copiedLink, setCopiedLink] = useState(false);
+  // Form State
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<Role>("KASIR");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Invite form
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<Role>("KASIR");
-  const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const refreshMembers = () => {
+    setMembers(getWorkspaceTeamMembers());
+  };
 
   useEffect(() => {
-    setMembers(loadFromLocalStorage("nstok_team_members_v3", INITIAL_MEMBERS));
-    setInvites(loadFromLocalStorage("nstok_team_invites_v3", INITIAL_INVITES));
-  }, []);
+    if (!authLoading && !user) {
+      router.push("/login");
+      return;
+    }
+    if (user) {
+      refreshMembers();
+    }
+  }, [user, authLoading, router]);
 
-  // RBAC Route Guard
-  if (!canAccess(["OWNER", "MANAGER"])) {
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !password) {
+      setFormError("Nama, email, dan kata sandi wajib diisi.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setFormError("Kata sandi minimal 6 karakter.");
+      return;
+    }
+
+    setFormError(null);
+    const res = await createStaffMember({
+      name,
+      email,
+      password,
+      role,
+      phone,
+    });
+
+    if (res.success) {
+      refreshMembers();
+      setIsAddModalOpen(false);
+      setName("");
+      setEmail("");
+      setPassword("");
+      setPhone("");
+      setRole("KASIR");
+      showToast(`Staf "${name}" berhasil ditambahkan sebagai ${role}.`);
+    } else {
+      setFormError(res.error || "Gagal menambahkan staf.");
+    }
+  };
+
+  const handleToggle = (member: UserAccount) => {
+    toggleStaffStatus(member.id, !member.isActive);
+    refreshMembers();
+    showToast(`Status akun "${member.name}" diperbarui.`);
+  };
+
+  const handleDelete = (member: UserAccount) => {
+    if (member.id === user?.id) {
+      alert("Anda tidak dapat menghapus akun Anda sendiri.");
+      return;
+    }
+
+    if (confirm(`Hapus akun staf "${member.name}" dari workspace toko ini?`)) {
+      deleteStaffMember(member.id);
+      refreshMembers();
+      showToast(`Akun staf "${member.name}" berhasil dihapus.`);
+    }
+  };
+
+  if (authLoading || !user) {
     return (
-      <div className="flex-1 flex flex-col h-screen">
-        <HeaderKasir />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 flex items-center justify-center">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <h2 className="text-base font-bold text-foreground">403 - Akses Terbatas</h2>
-          <p className="text-xs text-muted-foreground max-w-sm">
-            Halaman Manajemen Tim hanya dapat diakses oleh Owner dan Manager. Sesi Anda tidak memiliki izin untuk mengelola staf toko.
-          </p>
-        </div>
+      <div className="h-screen w-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto" />
       </div>
     );
   }
 
-  const handleCreateInvite = (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = `INV-${Date.now().toString().slice(-6)}`;
-    const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    const link = `${origin}/accept-invite?token=${token}`;
+  const isOwnerOrManager = user.role === "OWNER" || user.role === "MANAGER";
+  const isSupervisor = user.role === "SUPERVISOR";
 
-    const newInvite: InviteItem = {
-      id: `inv-${Date.now()}`,
-      email: inviteEmail,
-      role: inviteRole,
-      token,
-      inviteLink: link,
-      status: "PENDING",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("id-ID"),
-    };
-
-    const updated = [newInvite, ...invites];
-    setInvites(updated);
-    saveToLocalStorage("nstok_team_invites_v3", updated);
-    setGeneratedInviteLink(link);
-  };
-
-  const handleToggleActive = (id: string) => {
-    const updated = members.map((m) =>
-      m.id === id ? { ...m, isActive: !m.isActive } : m
+  // If user is KASIR or STAFF, show Access Restricted
+  if (!isOwnerOrManager && !isSupervisor) {
+    return (
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
+        <HeaderKasir />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-card border border-border rounded-3xl p-8 text-center shadow-xl">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Akses Terbatas</h2>
+            <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+              Halaman <span className="text-foreground font-semibold">Pengaturan Tim</span> hanya dapat diakses oleh akun dengan peran <span className="text-amber-500 font-bold">Owner</span> atau <span className="text-purple-500 font-bold">Manager</span>.
+            </p>
+            <Button
+              onClick={() => router.push("/pos")}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              <span>Kembali ke Kasir POS</span>
+            </Button>
+          </div>
+        </main>
+      </div>
     );
-    setMembers(updated);
-    saveToLocalStorage("nstok_team_members_v3", updated);
-  };
+  }
 
-  const handleOpenOffboardModal = (m: MemberItem) => {
-    setTargetMember(m);
-    setOffboardReason("Pemutusan hubungan kerja / rotasi staf");
-    setOffboardModalOpen(true);
-  };
+  const filteredMembers = members.filter((m) => {
+    const matchSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchRole = selectedRole === "ALL" || m.role === selectedRole;
+    return matchSearch && matchRole;
+  });
 
-  const handleConfirmOffboard = () => {
-    if (!targetMember) return;
-
-    // Remove from team
-    const updated = members.filter((m) => m.id !== targetMember.id);
-    setMembers(updated);
-    saveToLocalStorage("nstok_team_members_v3", updated);
-
-    setOffboardModalOpen(false);
-    setTargetMember(null);
+  const getRoleBadge = (r: Role) => {
+    switch (r) {
+      case "OWNER":
+        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-bold"><Crown className="w-3 h-3 mr-1" /> Owner</Badge>;
+      case "MANAGER":
+        return <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20 font-bold"><Key className="w-3 h-3 mr-1" /> Manager</Badge>;
+      case "SUPERVISOR":
+        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-bold"><ShieldCheck className="w-3 h-3 mr-1" /> Supervisor</Badge>;
+      case "KASIR":
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold"><Users className="w-3 h-3 mr-1" /> Kasir</Badge>;
+      default:
+        return <Badge variant="secondary">{r}</Badge>;
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
       <HeaderKasir />
 
-      <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
-        {/* Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-extrabold text-foreground">Manajemen Tim & Hak Akses (RBAC)</h1>
-            <p className="text-xs text-muted-foreground">Undang staf baru, atur peran, nonaktifkan akun, atau lakukan pemberhentian pegawai (offboarding).</p>
+      <main className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
+        {/* Toast */}
+        {toastMessage && (
+          <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-4">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{toastMessage}</span>
           </div>
-          <Button
-            onClick={() => {
-              setGeneratedInviteLink("");
-              setInviteEmail("");
-              setInviteModalOpen(true);
-            }}
-            className="text-xs font-bold shrink-0"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            <span>Undang Anggota Tim</span>
-          </Button>
+        )}
+
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold border border-emerald-500/20">
+                Toko: {user.organizationName}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              Pengaturan Tim & Akun Kasir
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Daftarkan staf kasir, supervisor, atau teknisi yang terhubung langsung dengan toko ini.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {isSupervisor && (
+              <span className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-500 border border-blue-500/20 text-xs font-bold flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5" />
+                <span>Mode Lihat Saja</span>
+              </span>
+            )}
+            {isOwnerOrManager && (
+              <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer">
+                <Plus className="w-4 h-4" />
+                <span>Tambah Staf Baru</span>
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Team Members List */}
-        <Card className="p-0 overflow-hidden">
-          <div className="p-4 bg-muted/30 border-b border-border flex items-center justify-between">
-            <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-              <UsersRound className="w-4 h-4 text-primary" />
-              <span>Daftar Staf Aktif ({members.length})</span>
-            </h2>
-            <span className="text-xs text-muted-foreground">Workspace: {settings.businessName}</span>
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Cari berdasarkan nama staf atau email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 text-xs"
+            />
           </div>
 
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+            {["ALL", "OWNER", "MANAGER", "SUPERVISOR", "KASIR"].map((r) => (
+              <button
+                key={r}
+                onClick={() => setSelectedRole(r)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
+                  selectedRole === r ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {r === "ALL" ? "Semua Peran" : r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Team Table */}
+        <Card className="overflow-hidden border-border bg-card">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
-              <thead className="bg-muted/40 text-muted-foreground border-b border-border">
+              <thead className="bg-muted/40 border-b border-border text-muted-foreground uppercase font-semibold">
                 <tr>
-                  <th className="py-3 px-4 font-semibold">Nama Staf & Email</th>
-                  <th className="py-3 px-4 font-semibold">Peran (Role)</th>
-                  <th className="py-3 px-4 font-semibold">Status Akun</th>
-                  <th className="py-3 px-4 font-semibold">Bergabung Sejak</th>
-                  <th className="py-3 px-4 font-semibold text-right">Aksi Manajemen</th>
+                  <th className="py-3 px-4">Nama Staf</th>
+                  <th className="py-3 px-4">Peran</th>
+                  <th className="py-3 px-4">Email Login</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {members.map((m) => {
-                  const isSelf = user?.email === m.email;
-                  const isOwner = m.role === "OWNER";
-
-                  return (
+                {filteredMembers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      Tidak ada anggota tim ditemukan.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMembers.map((m) => (
                     <tr key={m.id} className="hover:bg-muted/20 transition-colors">
                       <td className="py-3 px-4">
-                        <p className="font-bold text-foreground flex items-center gap-1.5">
+                        <div className="font-bold text-foreground text-sm flex items-center gap-2">
                           {m.name}
-                          {isSelf && <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-bold">(Anda)</span>}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">{m.email}</p>
+                          {m.id === user.id && (
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.2 rounded">
+                              Akun Anda
+                            </span>
+                          )}
+                        </div>
+                        {m.phone && m.phone !== "-" && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Phone className="w-3 h-3" />
+                            <span>{m.phone}</span>
+                          </div>
+                        )}
                       </td>
+                      <td className="py-3 px-4">{getRoleBadge(m.role)}</td>
+                      <td className="py-3 px-4 font-mono text-foreground font-medium">{m.email}</td>
                       <td className="py-3 px-4">
-                        <Badge variant={isOwner ? "default" : m.role === "MANAGER" ? "secondary" : "outline"}>
-                          {m.role}
-                        </Badge>
+                        {m.isActive ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Aktif
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                            Non-Aktif
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          m.isActive ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                        }`}>
-                          {m.isActive ? "Aktif" : "Dinonaktifkan"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">{m.joinedAt}</td>
                       <td className="py-3 px-4 text-right">
-                        {!isOwner && (
-                          <div className="flex justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleToggleActive(m.id)}
-                              className="h-7 text-[11px]"
+                        {isOwnerOrManager && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleToggle(m)}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                              title={m.isActive ? "Nonaktifkan Akun" : "Aktifkan Akun"}
                             >
-                              {m.isActive ? "Nonaktifkan" : "Aktifkan"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleOpenOffboardModal(m)}
-                              className="h-7 text-[11px]"
-                              title="Pemberhentian & Hapus dari Workspace"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 mr-1" />
-                              <span>Offboarding</span>
-                            </Button>
+                              {m.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                            </button>
+                            {m.id !== user.id && (
+                              <button
+                                onClick={() => handleDelete(m)}
+                                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                title="Hapus Staf"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>
                     </tr>
-                  );
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </Card>
 
-        {/* Pending Invites */}
-        {invites.length > 0 && (
-          <Card className="p-4 space-y-3">
-            <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-              <Mail className="w-4 h-4 text-primary" />
-              <span>Undangan Tertunda ({invites.length})</span>
-            </h3>
-            <div className="space-y-2">
-              {invites.map((inv) => (
-                <div key={inv.id} className="p-3 rounded-lg border border-border bg-muted/30 flex items-center justify-between gap-3 text-xs">
-                  <div>
-                    <p className="font-bold text-foreground">{inv.email} • Peran: {inv.role}</p>
-                    <p className="text-[11px] text-muted-foreground">Berlaku s.d {inv.expiresAt}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(inv.inviteLink);
-                        alert("Link undangan berhasil disalin!");
-                      }}
-                      className="h-8 text-xs"
-                    >
-                      <Copy className="w-3.5 h-3.5 mr-1" /> Salin Link
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-      </div>
+        {/* Modal: Tambah Staf Baru */}
+        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Tambah Staf Toko Baru</DialogTitle>
+              <DialogDescription>
+                Staf yang dibuat akan otomatis terdaftar pada workspace {user.organizationName}.
+              </DialogDescription>
+            </DialogHeader>
 
-      {/* Invite Modal */}
-      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Undang Staf ke Workspace</DialogTitle>
-            <DialogDescription>
-              Generate link undangan resmi. Staf dapat bergabung tanpa membuat workspace baru.
-            </DialogDescription>
-          </DialogHeader>
-
-          {generatedInviteLink ? (
-            <div className="space-y-3">
-              <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-xl border border-green-200 dark:border-green-800 text-xs">
-                <p className="font-bold text-green-800 dark:text-green-300">Tautan Undangan Siap Dibagikan!</p>
-                <p className="text-green-700 dark:text-green-400 mt-1">Bagikan link ini via WhatsApp ke staf:</p>
-                <div className="flex gap-2 mt-2">
-                  <Input readOnly value={generatedInviteLink} className="text-xs h-8" />
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedInviteLink);
-                      setCopiedLink(true);
-                      setTimeout(() => setCopiedLink(false), 2000);
-                    }}
-                    className="h-8 text-xs shrink-0"
-                  >
-                    {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  </Button>
-                </div>
+            {formError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{formError}</span>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setInviteModalOpen(false)}>Tutup</Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            <form onSubmit={handleCreateInvite} className="space-y-3">
+            )}
+
+            <form onSubmit={handleAddStaff} className="space-y-3.5 py-2">
               <div>
-                <label className="text-xs font-semibold">Email Calon Staf</label>
+                <label className="text-xs font-semibold text-foreground">Nama Lengkap Staf</label>
                 <Input
-                  type="email"
-                  placeholder="staf@gmail.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="Contoh: Rina Kasir"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   required
-                  className="mt-1 text-xs"
+                  className="mt-1"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold">Peran yang Diberikan (Role)</label>
+                <label className="text-xs font-semibold text-foreground">Alamat Email Login</label>
+                <Input
+                  type="email"
+                  placeholder="kasir@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">Kata Sandi Awal (Min. 6 Karakter)</label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">Peran Pengguna</label>
                 <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as Role)}
-                  className="mt-1 w-full h-9 rounded-lg border border-input bg-background px-3 py-1 text-xs"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-md border border-input bg-background"
                 >
-                  <option value="KASIR">💳 Kasir Operasional</option>
-                  <option value="SUPERVISOR">🛡️ Supervisor</option>
-                  <option value="MANAGER">👔 Outlet Manager</option>
+                  <option value="KASIR">Kasir (Transaksi POS, Shift Kasir, Cetak Struk)</option>
+                  <option value="SUPERVISOR">Supervisor (Otorisasi Void, Approval Diskon)</option>
+                  <option value="MANAGER">Manager (Kelola Produk, Laporan, & Staf)</option>
+                  <option value="STAFF_DAPUR">Staff Dapur (Kitchen Display KDS)</option>
+                  <option value="TEKNISI">Teknisi (Work Order Bengkel)</option>
                 </select>
               </div>
 
-              <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={() => setInviteModalOpen(false)}>Batal</Button>
-                <Button type="submit" className="font-bold">Buat Link Undangan</Button>
+              <div>
+                <label className="text-xs font-semibold text-foreground">No. Telepon / WhatsApp (Opsional)</label>
+                <Input
+                  placeholder="0812-xxxx-xxxx"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+
+              <DialogFooter className="pt-3">
+                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                  Simpan Staf
+                </Button>
               </DialogFooter>
             </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Offboard / Remove Member Modal */}
-      <Dialog open={offboardModalOpen} onOpenChange={setOffboardModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 flex items-center justify-center mb-2 mx-auto">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <DialogTitle className="text-center">Konfirmasi Pemberhentian Pegawai</DialogTitle>
-            <DialogDescription className="text-center">
-              Apakah Anda yakin ingin memberhentikan <span className="font-bold text-foreground">{targetMember?.name}</span> dari workspace?
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 text-xs">
-            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-1">
-              <p className="font-bold text-amber-800 dark:text-amber-300">Dampak Aksi Ini:</p>
-              <ul className="list-disc list-inside text-amber-700 dark:text-amber-400 space-y-0.5 text-[11px]">
-                <li>Sesi aktif staf langsung dicabut seketika (Instant Session Kickout).</li>
-                <li>Shift kasir yang masih terbuka akan otomatis ditutup secara administratif.</li>
-                <li>Riwayat transaksi kasir masa lalu tetap aman dan terpelihara utuh.</li>
-              </ul>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold">Alasan Pemberhentian</label>
-              <Input
-                value={offboardReason}
-                onChange={(e) => setOffboardReason(e.target.value)}
-                className="mt-1 text-xs"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="mt-4 flex gap-2">
-            <Button variant="outline" onClick={() => setOffboardModalOpen(false)} className="flex-1">Batal</Button>
-            <Button variant="destructive" onClick={handleConfirmOffboard} className="flex-1 font-bold">
-              Keluarkan dari Tim
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </main>
     </div>
   );
 }

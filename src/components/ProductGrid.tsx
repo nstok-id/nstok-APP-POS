@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Barcode, Plus, Tag, AlertCircle, Check } from "lucide-react";
+import { Search, Barcode, Plus, Tag, AlertCircle, Check, Trash2 } from "lucide-react";
 import { Product } from "@/db/schema";
 import { useCart } from "@/context/CartContext";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
@@ -10,10 +10,12 @@ import { Badge } from "@/components/ui/atoms";
 
 export function ProductGrid({ 
   products,
-  onAddNewProduct
+  onAddNewProduct,
+  onDeleteProduct
 }: { 
   products: Product[];
   onAddNewProduct?: () => void;
+  onDeleteProduct?: (id: string) => void;
 }) {
   const { addToCart, items } = useCart();
   const { formatCurrency } = useWorkspaceSettings();
@@ -38,55 +40,44 @@ export function ProductGrid({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 p-4 space-y-4">
-      {/* Top Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+    <div className="flex flex-col h-full space-y-3">
+      {/* Search & Category Tabs */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Cari nama barang, SKU, atau scan barcode..."
+            placeholder="Cari menu, SKU, atau scan barcode..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-9 h-10 rounded-xl"
+            className="pl-9 text-xs"
           />
-          <Barcode className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2" />
         </div>
 
-        {onAddNewProduct && (
-          <button
-            onClick={onAddNewProduct}
-            className="flex items-center justify-center gap-1.5 px-4 h-10 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Item</span>
-          </button>
-        )}
+        {/* Category Pill Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                selectedCategory === cat
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {cat === "ALL" ? "Semua Menu" : cat}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              selectedCategory === cat
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            }`}
-          >
-            {cat === "ALL" ? "Semua Kategori" : cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Product Cards Grid */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Grid List */}
+      <div className="flex-1 overflow-y-auto pr-1">
         {filteredProducts.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
-            <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
-            <p className="font-semibold text-sm">Produk tidak ditemukan</p>
-            <p className="text-xs">Coba kata kunci lain atau pilih kategori Semua.</p>
+          <div className="flex flex-col items-center justify-center h-48 border border-dashed border-border rounded-xl text-center p-6 space-y-2">
+            <Tag className="w-8 h-8 text-muted-foreground" />
+            <p className="text-xs font-semibold text-foreground">Tidak ada produk ditemukan</p>
+            <p className="text-[11px] text-muted-foreground">Coba ubah kata kunci pencarian atau kategori.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
@@ -108,11 +99,25 @@ export function ProductGrid({
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">
                       {product.category}
                     </span>
-                    {inCartQty > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shadow-xs">
-                        {inCartQty}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {onDeleteProduct && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteProduct(product.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-destructive rounded"
+                          title="Hapus Produk"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {inCartQty > 0 && (
+                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shadow-xs">
+                          {inCartQty}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Product Title & SKU */}

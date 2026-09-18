@@ -1,21 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Package, Search, Plus, AlertTriangle, Edit, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Package, Search, Plus, AlertTriangle, Edit, Trash2, Loader2 } from "lucide-react";
 import { Product } from "@/db/schema";
-import { INITIAL_PRODUCTS } from "@/db/index";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
+import { getStarterProducts } from "@/lib/starter-templates";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
+import { useAuth } from "@/context/AuthContext";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, Badge } from "@/components/ui/atoms";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-const PRODUCTS_STORAGE_KEY = "nstok_products_v3";
-
 export default function InventoryPage() {
+  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const { formatCurrency, settings } = useWorkspaceSettings();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
@@ -32,9 +35,20 @@ export default function InventoryPage() {
   const [unit, setUnit] = useState("pcs");
   const [minStockAlert, setMinStockAlert] = useState("5");
 
+  const orgId = user?.organizationId || "org-demo-1";
+  const PRODUCTS_STORAGE_KEY = `nstok_${orgId}_products`;
+
   useEffect(() => {
-    setProducts(loadFromLocalStorage(PRODUCTS_STORAGE_KEY, INITIAL_PRODUCTS));
-  }, []);
+    if (!authLoading && !user) {
+      router.push("/login");
+      return;
+    }
+
+    if (user) {
+      const defaultProducts = getStarterProducts((user.businessType as any) || "FNB", orgId);
+      setProducts(loadFromLocalStorage(PRODUCTS_STORAGE_KEY, defaultProducts));
+    }
+  }, [user, authLoading, orgId, router, PRODUCTS_STORAGE_KEY]);
 
   const openAddModal = () => {
     setEditingProduct(null);
@@ -88,7 +102,7 @@ export default function InventoryPage() {
     } else {
       const newProd: Product = {
         id: `prod-${Date.now()}`,
-        organizationId: "org-demo-1",
+        organizationId: orgId,
         outletId: "outlet-1",
         name,
         sku,
@@ -114,56 +128,73 @@ export default function InventoryPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Hapus produk ini dari master barang?")) {
+    if (confirm("Apakah Anda yakin ingin menghapus produk ini dari katalog toko?")) {
       const updated = products.filter((p) => p.id !== id);
       setProducts(updated);
       saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
     }
   };
 
-  const categories = ["ALL", ...Array.from(new Set(products.map((p) => p.category)))];
+  if (authLoading || !user) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto" />
+      </div>
+    );
+  }
 
-  const filtered = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === "ALL" || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const categories = ["ALL", ...Array.from(new Set(products.map((p) => p.category)))];
+  const filteredProducts = products.filter((p) => {
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+    const matchCategory = selectedCategory === "ALL" || p.category === selectedCategory;
+    return matchSearch && matchCategory;
   });
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
       <HeaderKasir />
 
-      <div className="p-6 space-y-6 max-w-7xl mx-auto w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
+        {/* Top Action Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
           <div>
-            <h1 className="text-xl font-extrabold text-foreground">Katalog Master Inventori & Stok</h1>
-            <p className="text-xs text-muted-foreground">Kelola SKU, HPP, harga jual, dan batas stok minimum.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold border border-emerald-500/20">
+                Toko: {user.organizationName}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              Manajemen Produk & Stok
+            </h1>
           </div>
-          <Button onClick={openAddModal} className="text-xs font-bold shrink-0">
-            <Plus className="w-4 h-4 mr-1.5" />
+
+          <Button onClick={openAddModal} className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer self-start sm:self-auto">
+            <Plus className="w-4 h-4" />
             <span>Tambah Produk Baru</span>
           </Button>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* Filters & Search */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Cari nama barang atau SKU..."
+              placeholder="Cari berdasarkan nama produk atau SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 text-xs"
             />
           </div>
 
-          <div className="flex gap-1.5 overflow-x-auto">
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                  selectedCategory === cat ? "bg-primary text-primary-foreground font-bold" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                  selectedCategory === cat
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
                 {cat === "ALL" ? "Semua Kategori" : cat}
@@ -172,121 +203,201 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Table Card */}
-        <Card className="p-0 overflow-hidden">
+        {/* Product Table */}
+        <Card className="overflow-hidden border-border bg-card">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
-              <thead className="bg-muted/40 text-muted-foreground border-b border-border">
+              <thead className="bg-muted/40 border-b border-border text-muted-foreground uppercase font-semibold">
                 <tr>
-                  <th className="py-3 px-4 font-semibold">SKU / Nama Produk</th>
-                  <th className="py-3 px-4 font-semibold">Kategori</th>
-                  <th className="py-3 px-4 font-semibold">HPP (Modal)</th>
-                  <th className="py-3 px-4 font-semibold">Harga Jual</th>
-                  <th className="py-3 px-4 font-semibold">Sisa Stok</th>
-                  <th className="py-3 px-4 font-semibold text-right">Aksi</th>
+                  <th className="py-3 px-4">Nama Produk</th>
+                  <th className="py-3 px-4">SKU / Kategori</th>
+                  <th className="py-3 px-4">Harga Modal</th>
+                  <th className="py-3 px-4">Harga Jual</th>
+                  <th className="py-3 px-4">Stok Fisik</th>
+                  <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((prod) => {
-                  const isLow = prod.stock <= prod.minStockAlert;
-                  return (
-                    <tr key={prod.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="py-3 px-4">
-                        <p className="font-bold text-foreground">{prod.name}</p>
-                        <p className="text-[10px] text-muted-foreground font-mono">{prod.sku}</p>
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">{prod.category}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{formatCurrency(parseFloat(prod.costPrice))}</td>
-                      <td className="py-3 px-4 font-bold text-primary">{formatCurrency(parseFloat(prod.sellingPrice))}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                          prod.stock <= 0
-                            ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-                            : isLow
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                            : "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
-                        }`}>
-                          {prod.stock} {prod.unit}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            onClick={() => openEditModal(prod)}
-                            className="p-1.5 hover:bg-muted rounded text-primary"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(prod.id)}
-                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 rounded text-red-500"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      Tidak ada produk ditemukan.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((p) => {
+                    const isLowStock = p.stock <= (p.minStockAlert || 5);
+                    return (
+                      <tr key={p.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-foreground text-sm">{p.name}</div>
+                          <div className="text-[11px] text-muted-foreground">Satuan: {p.unit}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-foreground font-medium">{p.sku}</span>
+                          <div className="text-[11px] text-muted-foreground">{p.category}</div>
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {formatCurrency(parseFloat(p.costPrice || "0"))}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-foreground">
+                          {formatCurrency(parseFloat(p.sellingPrice))}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`font-bold text-sm ${isLowStock ? "text-red-500" : "text-emerald-500"}`}>
+                              {p.stock} {p.unit}
+                            </span>
+                            {isLowStock && (
+                              <span className="p-1 rounded bg-red-500/10 text-red-500" title="Stok Menipis!">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEditModal(p)}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                              title="Edit Produk"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                              title="Hapus Produk"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </Card>
-      </div>
 
-      {/* Edit / Add Modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingProduct ? "Ubah Informasi Produk" : "Tambah Produk Baru"}</DialogTitle>
-            <DialogDescription>Lengkapi detail produk untuk master inventori workspace.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold">Nama Produk</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 text-xs" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+        {/* Dialog Add/Edit Product */}
+        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingProduct ? "Edit Informasi Produk" : "Tambah Produk Baru"}</DialogTitle>
+              <DialogDescription>
+                Kelola master produk dan stok untuk workspace toko {user.organizationName}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSave} className="space-y-3.5 py-2">
               <div>
-                <label className="text-xs font-semibold">SKU</label>
-                <Input value={sku} onChange={(e) => setSku(e.target.value)} required className="mt-1 text-xs" />
+                <label className="text-xs font-semibold text-foreground">Nama Produk</label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Contoh: Kopi Susu Aren"
+                  required
+                  className="mt-1"
+                />
               </div>
-              <div>
-                <label className="text-xs font-semibold">Kategori</label>
-                <Input value={category} onChange={(e) => setCategory(e.target.value)} required className="mt-1 text-xs" />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Kategori</label>
+                  <Input
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="Minuman / Makanan / dll"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-foreground">SKU / Kode Barang</label>
+                  <Input
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                    placeholder="SKU-001"
+                    required
+                    className="mt-1"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs font-semibold">Harga Beli HPP (Rp)</label>
-                <Input type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} className="mt-1 text-xs" />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Harga Modal (HPP)</label>
+                  <Input
+                    type="number"
+                    value={costPrice}
+                    onChange={(e) => setCostPrice(e.target.value)}
+                    placeholder="8000"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Harga Jual (Rp)</label>
+                  <Input
+                    type="number"
+                    value={sellingPrice}
+                    onChange={(e) => setSellingPrice(e.target.value)}
+                    placeholder="18000"
+                    required
+                    className="mt-1"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold">Harga Jual (Rp)</label>
-                <Input type="number" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} required className="mt-1 text-xs" />
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Stok Fisik</label>
+                  <Input
+                    type="number"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    placeholder="50"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Satuan</label>
+                  <Input
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    placeholder="cup/pcs"
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-foreground">Min. Alert</label>
+                  <Input
+                    type="number"
+                    value={minStockAlert}
+                    onChange={(e) => setMinStockAlert(e.target.value)}
+                    placeholder="5"
+                    required
+                    className="mt-1"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="text-xs font-semibold">Jumlah Stok</label>
-                <Input type="number" value={stock} onChange={(e) => setStock(e.target.value)} required className="mt-1 text-xs" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold">Satuan</label>
-                <Input value={unit} onChange={(e) => setUnit(e.target.value)} className="mt-1 text-xs" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold">Batas Min. Alert</label>
-                <Input type="number" value={minStockAlert} onChange={(e) => setMinStockAlert(e.target.value)} className="mt-1 text-xs" />
-              </div>
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Batal</Button>
-              <Button type="submit" className="font-bold">Simpan Produk</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+
+              <DialogFooter className="pt-3">
+                <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
+                  Batal
+                </Button>
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                  Simpan Produk
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </main>
     </div>
   );
 }

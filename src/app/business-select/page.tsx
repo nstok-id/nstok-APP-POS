@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   UtensilsCrossed, 
@@ -11,19 +11,38 @@ import {
   Globe, 
   ArrowRight,
   CheckCircle2,
-  Store
+  Store,
+  Sparkles,
+  Loader2
 } from "lucide-react";
 import { useBusinessMode, BusinessArchetype, ARCHETYPES } from "@/context/BusinessModeContext";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/AuthContext";
 
 export default function BusinessSelectPage() {
   const router = useRouter();
+  const { user, updateUserWorkspace, isLoading: authLoading } = useAuth();
   const { mode, setMode } = useBusinessMode();
-  const { settings, updateSettings } = useWorkspaceSettings();
+  const { updateSettings } = useWorkspaceSettings();
 
-  const [customBusinessName, setCustomBusinessName] = useState(settings.businessName || "Kopi & Usaha Saya");
+  const [selectedType, setSelectedType] = useState<BusinessArchetype>("FNB");
+  const [customBusinessName, setCustomBusinessName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+      return;
+    }
+    if (user?.organizationName) {
+      setCustomBusinessName(user.organizationName);
+    } else {
+      setCustomBusinessName("Usaha Baru Saya");
+    }
+    if (user?.businessType && ARCHETYPES[user.businessType as BusinessArchetype]) {
+      setSelectedType(user.businessType as BusinessArchetype);
+    }
+  }, [user, authLoading, router]);
 
   const getArchetypeIcon = (type: BusinessArchetype) => {
     switch (type) {
@@ -36,37 +55,68 @@ export default function BusinessSelectPage() {
     }
   };
 
-  const handleSelectAndProceed = (type: BusinessArchetype) => {
-    setMode(type);
-    if (customBusinessName) {
-      updateSettings({ businessName: customBusinessName });
+  const handleSelectAndProceed = async () => {
+    if (!customBusinessName.trim()) {
+      alert("Silakan masukkan nama bisnis / toko Anda.");
+      return;
     }
-    router.push("/pos");
+
+    setIsSubmitting(true);
+    try {
+      setMode(selectedType);
+      updateSettings({ businessName: customBusinessName.trim() });
+      await updateUserWorkspace(customBusinessName.trim(), selectedType);
+
+      setTimeout(() => {
+        router.push("/pos");
+      }, 400);
+    } catch (e) {
+      console.error("Error setting business type:", e);
+      router.push("/pos");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-emerald-500" />
+          <p className="text-xs">Memuat konfigurasi workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-6 bg-slate-50 dark:bg-zinc-950">
-      <div className="w-full max-w-4xl space-y-6">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-8 bg-zinc-950 text-zinc-100 font-sans">
+      <div className="w-full max-w-4xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Onboarding Toko Baru: {user.name}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             Pilih Jenis Usaha & Konfigurasi Toko Anda
           </h1>
-          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Sistem nstok-app-POS akan otomatis mengaktifkan modul khusus (KDS Dapur, Denah Meja, Barcode Scanner, Work Order, atau Tiered Pricing) sesuai pilihan Anda.
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-lg mx-auto">
+            Sistem nstok-APP-pos akan otomatis menyiapkan template produk dan mengaktifkan modul khusus (KDS Dapur, Denah Meja, Barcode Scanner, Work Order, atau Tiered Pricing) untuk workspace toko Anda.
           </p>
         </div>
 
         {/* Business Name Input Card */}
-        <div className="max-w-md mx-auto p-4 rounded-2xl border border-border bg-card shadow-xs space-y-2">
-          <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Store className="w-4 h-4 text-primary" />
+        <div className="max-w-md mx-auto p-5 rounded-3xl border border-zinc-800 bg-zinc-900/80 shadow-xl space-y-2 backdrop-blur-sm">
+          <label className="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+            <Store className="w-4 h-4 text-emerald-400" />
             <span>Nama Bisnis / Toko Anda</span>
           </label>
-          <Input
+          <input
             placeholder="Contoh: Kopi Kenangan, Minimarket Berkah, dll"
             value={customBusinessName}
             onChange={(e) => setCustomBusinessName(e.target.value)}
-            className="text-xs font-medium"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-medium"
           />
         </div>
 
@@ -74,51 +124,67 @@ export default function BusinessSelectPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(Object.keys(ARCHETYPES) as BusinessArchetype[]).map((type) => {
             const info = ARCHETYPES[type];
-            const isSelected = mode === type;
+            const isSelected = selectedType === type;
 
             return (
               <div
                 key={type}
-                onClick={() => setMode(type)}
-                className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
+                onClick={() => setSelectedType(type)}
+                className={`p-5 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
                   isSelected
-                    ? "border-primary bg-primary/5 shadow-md shadow-primary/10 ring-2 ring-primary"
-                    : "border-border bg-card hover:bg-muted/40"
+                    ? "border-emerald-500 bg-emerald-500/10 shadow-xl shadow-emerald-500/10 ring-2 ring-emerald-500/80"
+                    : "border-zinc-800/80 bg-zinc-900/60 hover:bg-zinc-800/50"
                 }`}
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      isSelected ? "bg-emerald-500 text-zinc-950" : "bg-zinc-800 text-zinc-300"
+                    }`}>
                       {getArchetypeIcon(type)}
                     </div>
-                    {isSelected && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                    {isSelected && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-base text-foreground">{info.name}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Arketipe Vertikal {info.badge}</p>
+                    <h3 className="font-black text-base text-white">{info.name}</h3>
+                    <span className="text-[11px] font-bold text-emerald-400">Vertikal {info.badge}</span>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    {info.features.map((feat) => (
-                      <span key={feat} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {feat}
-                      </span>
-                    ))}
+                  <div className="space-y-1 pt-2 border-t border-zinc-800/80">
+                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider block">
+                      Modul Otomatis:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {info.features.map((feat) => (
+                        <span key={feat} className="text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-300 px-2 py-0.5 rounded-md">
+                          {feat}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-
-                <Button
-                  size="sm"
-                  variant={isSelected ? "default" : "outline"}
-                  onClick={() => handleSelectAndProceed(type)}
-                  className="w-full text-xs font-bold cursor-pointer"
-                >
-                  Pilih & Masuk ke Kasir
-                </Button>
               </div>
             );
           })}
+        </div>
+
+        {/* Action Button */}
+        <div className="flex justify-center pt-2">
+          <button
+            onClick={handleSelectAndProceed}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto min-w-[280px] py-3.5 px-8 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-sm shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <span>Mulai Menggunakan POS Toko</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

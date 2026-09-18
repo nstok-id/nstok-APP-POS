@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
+import { useAuth } from "./AuthContext";
 
 export interface WorkspaceSettingsData {
   businessName: string;
@@ -25,8 +26,8 @@ export interface WorkspaceSettingsData {
 }
 
 export const DEFAULT_SETTINGS: WorkspaceSettingsData = {
-  businessName: "OmniPOS Kopi & Bakery",
-  businessAddress: "Jl. Sudirman No. 88, Jakarta Pusat",
+  businessName: "OmniPOS Usaha Saya",
+  businessAddress: "Jl. Jenderal Sudirman No. 88, Jakarta Selatan",
   phone: "0812-3456-7890",
   email: "kontak@omnipos.id",
   npwp: "01.234.567.8-901.000",
@@ -61,9 +62,8 @@ interface WorkspaceSettingsContextType {
 
 const WorkspaceSettingsContext = createContext<WorkspaceSettingsContextType | null>(null);
 
-const STORAGE_KEY = "nstok_workspace_settings_v3";
-
 export function WorkspaceSettingsProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<WorkspaceSettingsData>(DEFAULT_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
   const [syncStatus, setSyncStatus] = useState({
@@ -71,16 +71,27 @@ export function WorkspaceSettingsProvider({ children }: { children: React.ReactN
     lastSynced: "Baru saja",
   });
 
+  const getStorageKey = () => {
+    return user?.organizationId ? `nstok_${user.organizationId}_settings` : "nstok_workspace_settings_v3";
+  };
+
   useEffect(() => {
-    const saved = loadFromLocalStorage<WorkspaceSettingsData>(STORAGE_KEY, DEFAULT_SETTINGS);
+    const key = getStorageKey();
+    const initialWithOrgName: WorkspaceSettingsData = {
+      ...DEFAULT_SETTINGS,
+      businessName: user?.organizationName || DEFAULT_SETTINGS.businessName,
+      email: user?.email || DEFAULT_SETTINGS.email,
+    };
+    const saved = loadFromLocalStorage<WorkspaceSettingsData>(key, initialWithOrgName);
     setSettings(saved);
     setIsLoaded(true);
-  }, []);
+  }, [user?.organizationId, user?.organizationName]);
 
   const updateSettings = (newSettings: Partial<WorkspaceSettingsData>) => {
+    const key = getStorageKey();
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-      saveToLocalStorage(STORAGE_KEY, updated);
+      saveToLocalStorage(key, updated);
       return updated;
     });
 
@@ -88,12 +99,17 @@ export function WorkspaceSettingsProvider({ children }: { children: React.ReactN
     setSyncStatus({ isSyncing: true, lastSynced: "Sedang sinkron..." });
     setTimeout(() => {
       setSyncStatus({ isSyncing: false, lastSynced: new Date().toLocaleTimeString("id-ID") });
-    }, 600);
+    }, 500);
   };
 
   const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
-    saveToLocalStorage(STORAGE_KEY, DEFAULT_SETTINGS);
+    const key = getStorageKey();
+    const initialWithOrgName: WorkspaceSettingsData = {
+      ...DEFAULT_SETTINGS,
+      businessName: user?.organizationName || DEFAULT_SETTINGS.businessName,
+    };
+    setSettings(initialWithOrgName);
+    saveToLocalStorage(key, initialWithOrgName);
   };
 
   const formatCurrency = (amount: number): string => {
@@ -121,7 +137,7 @@ export function WorkspaceSettingsProvider({ children }: { children: React.ReactN
 
   const triggerForceSync = async () => {
     setSyncStatus({ isSyncing: true, lastSynced: "Menyinkronkan cloud..." });
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 800));
     setSyncStatus({ isSyncing: false, lastSynced: new Date().toLocaleTimeString("id-ID") });
   };
 

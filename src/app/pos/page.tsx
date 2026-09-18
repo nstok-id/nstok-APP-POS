@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { ProductGrid } from "@/components/ProductGrid";
 import { CartSidebar } from "@/components/CartSidebar";
@@ -9,20 +10,19 @@ import { ReceiptModal } from "@/components/ReceiptModal";
 import { SupervisorApprovalModal } from "@/components/SupervisorApprovalModal";
 import { TransactionHistoryModal } from "@/components/TransactionHistoryModal";
 import { Product, Transaction, Customer } from "@/db/schema";
-import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS } from "@/db/index";
+import { getStarterProducts, getStarterCustomers } from "@/lib/starter-templates";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
 import { useCart } from "@/context/CartContext";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
-import { History, Plus } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { History, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-const PRODUCTS_STORAGE_KEY = "nstok_products_v3";
-const TRANSACTIONS_STORAGE_KEY = "nstok_transactions_v3";
-const CUSTOMERS_STORAGE_KEY = "nstok_customers_v3";
-
 export default function PosPage() {
+  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const { setDiscountPercent, setDiscountAmount } = useCart();
   const { settings } = useWorkspaceSettings();
 
@@ -47,14 +47,30 @@ export default function PosPage() {
   const [newProdPrice, setNewProdPrice] = useState("");
   const [newProdStock, setNewProdStock] = useState("50");
 
+  const orgId = user?.organizationId || "org-demo-1";
+  const PRODUCTS_STORAGE_KEY = `nstok_${orgId}_products`;
+  const TRANSACTIONS_STORAGE_KEY = `nstok_${orgId}_transactions`;
+  const CUSTOMERS_STORAGE_KEY = `nstok_${orgId}_customers`;
+
   useEffect(() => {
-    const loadedProducts = loadFromLocalStorage<Product[]>(PRODUCTS_STORAGE_KEY, INITIAL_PRODUCTS);
-    const loadedCustomers = loadFromLocalStorage<Customer[]>(CUSTOMERS_STORAGE_KEY, INITIAL_CUSTOMERS);
-    const loadedTrx = loadFromLocalStorage<Transaction[]>(TRANSACTIONS_STORAGE_KEY, []);
-    setProducts(loadedProducts);
-    setCustomers(loadedCustomers);
-    setTransactions(loadedTrx);
-  }, []);
+    if (!authLoading && !user) {
+      router.push("/login");
+      return;
+    }
+
+    if (user) {
+      const defaultProducts = getStarterProducts((user.businessType as any) || "FNB", orgId);
+      const defaultCustomers = getStarterCustomers(orgId);
+
+      const loadedProducts = loadFromLocalStorage<Product[]>(PRODUCTS_STORAGE_KEY, defaultProducts);
+      const loadedCustomers = loadFromLocalStorage<Customer[]>(CUSTOMERS_STORAGE_KEY, defaultCustomers);
+      const loadedTrx = loadFromLocalStorage<Transaction[]>(TRANSACTIONS_STORAGE_KEY, []);
+
+      setProducts(loadedProducts);
+      setCustomers(loadedCustomers);
+      setTransactions(loadedTrx);
+    }
+  }, [user, authLoading, orgId, router, PRODUCTS_STORAGE_KEY, CUSTOMERS_STORAGE_KEY, TRANSACTIONS_STORAGE_KEY]);
 
   const handlePaymentSuccess = (trx: Transaction) => {
     const updatedTrx = [trx, ...transactions];
@@ -74,6 +90,27 @@ export default function PosPage() {
       saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
       return updated;
     });
+
+    // If customer selected, add loyalty points (1 pt per 10k)
+    if (trx.customerId) {
+      const trxAmount = parseFloat(trx.grandTotal || "0");
+      setCustomers((prev) => {
+        const updated = prev.map((c) => {
+          if (c.id === trx.customerId) {
+            const addedPoints = Math.floor(trxAmount / 10000);
+            const currentSpent = parseFloat(c.totalSpent || "0") || 0;
+            return {
+              ...c,
+              loyaltyPoints: (c.loyaltyPoints || 0) + addedPoints,
+              totalSpent: (currentSpent + trxAmount).toString(),
+            };
+          }
+          return c;
+        });
+        saveToLocalStorage(CUSTOMERS_STORAGE_KEY, updated);
+        return updated;
+      });
+    }
 
     setActiveTransaction(trx);
     setReceiptModalOpen(true);
@@ -123,7 +160,7 @@ export default function PosPage() {
 
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
-      organizationId: "org-demo-1",
+      organizationId: orgId,
       outletId: "outlet-1",
       name: newProdName,
       sku: newProdSku || `SKU-${Date.now().toString().slice(-4)}`,
@@ -148,60 +185,94 @@ export default function PosPage() {
     setNewProdName("");
     setNewProdSku("");
     setNewProdPrice("");
+    setNewProdStock("50");
     setAddProductModalOpen(false);
   };
 
-  return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
-      <HeaderKasir />
+  const handleDeleteProduct = (prodId: string) => {
+    const updated = products.filter((p) => p.id !== prodId);
+    setProducts(updated);
+    saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
+  };
 
-      <div className="flex-1 flex min-w-0 overflow-hidden">
-        {/* Main Product Catalog Section */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Quick Floating Top Bar for POS specific actions */}
-          <div className="px-4 pt-2 flex items-center justify-between">
+  if (authLoading || !user) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-zinc-950 text-zinc-400">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
+      {/* Top Header */}
+      <HeaderKasir
+        onOpenHistory={() => setHistoryModalOpen(true)}
+      />
+
+      {/* Main Split Screen */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: Product Grid */}
+        <div className="flex-1 overflow-y-auto bg-muted/20 p-4 relative">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-foreground">Etalase Kasir</h2>
+              <p className="text-xs text-muted-foreground">
+                Toko: <span className="font-semibold text-emerald-500">{user.organizationName}</span> • Vertikal: {user.businessType}
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <Button
-                size="sm"
                 variant="outline"
+                size="sm"
                 onClick={() => setHistoryModalOpen(true)}
-                className="text-xs h-8"
+                className="gap-1 text-xs cursor-pointer"
               >
-                <History className="w-3.5 h-3.5 mr-1" />
-                <span>Riwayat Transaksi</span>
+                <History className="w-3.5 h-3.5" />
+                <span>Riwayat ({transactions.length})</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setAddProductModalOpen(true)}
+                className="gap-1 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Menu</span>
               </Button>
             </div>
           </div>
 
-          <ProductGrid
-            products={products}
-            onAddNewProduct={() => setAddProductModalOpen(true)}
+          <ProductGrid 
+            products={products} 
+            onDeleteProduct={handleDeleteProduct}
           />
         </div>
 
-        {/* Right Cart Sidebar */}
-        <CartSidebar
-          onCheckout={() => setPaymentModalOpen(true)}
-          onOpenApprovalModal={handleOpenDiscountApproval}
-          customersList={customers}
-        />
+        {/* Right: Cart Sidebar */}
+        <div className="w-96 border-l border-border bg-card flex flex-col shadow-lg">
+          <CartSidebar
+            customersList={customers}
+            onCheckout={() => setPaymentModalOpen(true)}
+            onOpenApprovalModal={handleOpenDiscountApproval}
+          />
+        </div>
       </div>
 
-      {/* Payment Dialog */}
+      {/* Payment Modal */}
       <PaymentModal
         isOpen={paymentModalOpen}
         onClose={() => setPaymentModalOpen(false)}
         onPaymentSuccess={handlePaymentSuccess}
       />
 
-      {/* Receipt Dialog */}
+      {/* Receipt Modal */}
       <ReceiptModal
-        transaction={activeTransaction}
         isOpen={receiptModalOpen}
         onClose={() => setReceiptModalOpen(false)}
+        transaction={activeTransaction}
       />
 
-      {/* Supervisor Approval Dialog */}
+      {/* Supervisor Approval Modal */}
       <SupervisorApprovalModal
         isOpen={approvalModalOpen}
         onClose={() => {
@@ -210,19 +281,15 @@ export default function PosPage() {
           setPendingVoidTrx(null);
         }}
         onApproved={handleApproved}
-        actionTitle={
-          pendingDiscountValue !== null
-            ? `Otorisasi Diskon Besar (${pendingDiscountValue}%)`
-            : "Otorisasi Pembatalan (Void) Nota"
-        }
+        actionTitle={pendingVoidTrx ? "Otorisasi Pembatalan Nota (Void)" : "Otorisasi Diskon Khusus"}
         actionDescription={
-          pendingDiscountValue !== null
-            ? `Diskon sebesar ${pendingDiscountValue}% melebihi batas standar (${settings.approvalDiscountThresholdPercent}%). Diperlukan otorisasi Supervisor.`
-            : "Pembatalan nota akan memulihkan sisa stok barang dan mengurangi omzet. Diperlukan persetujuan Supervisor."
+          pendingVoidTrx
+            ? `Masukkan PIN/Sandi Supervisor untuk membatalkan nota #${pendingVoidTrx.invoiceNumber}`
+            : `Masukkan PIN/Sandi Supervisor untuk memberikan diskon ${pendingDiscountValue}%`
         }
       />
 
-      {/* Transaction History Dialog */}
+      {/* Transaction History Modal */}
       <TransactionHistoryModal
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
@@ -237,70 +304,95 @@ export default function PosPage() {
         }}
       />
 
-      {/* Add Product Modal */}
+      {/* Quick Add Product Modal */}
       <Dialog open={addProductModalOpen} onOpenChange={setAddProductModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Tambah Menu / Barang Cepat</DialogTitle>
-            <DialogDescription>Tambahkan barang baru langsung ke etalase kasir.</DialogDescription>
+            <DialogTitle>Tambah Menu / Barang Baru</DialogTitle>
+            <DialogDescription>
+              Tambahkan item baru langsung ke katalog kasir {user.organizationName}.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreateProduct} className="space-y-3">
+
+          <form onSubmit={handleCreateProduct} className="space-y-4 py-2">
             <div>
-              <label className="text-xs font-semibold text-foreground">Nama Barang</label>
+              <label className="text-xs font-semibold text-foreground">Nama Menu / Produk</label>
               <Input
-                placeholder="Contoh: Green Tea Latte"
+                placeholder="Contoh: Caramel Latte Special"
                 value={newProdName}
                 onChange={(e) => setNewProdName(e.target.value)}
                 required
                 className="mt-1"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-foreground">Kategori</label>
-                <Input
-                  placeholder="Minuman / Makanan"
+                <select
                   value={newProdCategory}
                   onChange={(e) => setNewProdCategory(e.target.value)}
-                  required
+                  className="w-full mt-1 px-3 py-2 text-xs rounded-md border border-input bg-background"
+                >
+                  <option value="Minuman">Minuman</option>
+                  <option value="Makanan">Makanan</option>
+                  <option value="Camilan">Camilan</option>
+                  <option value="Sembako">Sembako</option>
+                  <option value="Sparepart">Sparepart</option>
+                  <option value="Layanan">Layanan</option>
+                  <option value="Fashion">Fashion</option>
+                  <option value="Umum">Umum</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">SKU / Kode (Opsional)</label>
+                <Input
+                  placeholder="Auto-generated"
+                  value={newProdSku}
+                  onChange={(e) => setNewProdSku(e.target.value)}
                   className="mt-1"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-foreground">Harga Jual (Rp)</label>
                 <Input
                   type="number"
-                  placeholder="20000"
+                  placeholder="25000"
                   value={newProdPrice}
                   onChange={(e) => setNewProdPrice(e.target.value)}
                   required
                   className="mt-1"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs font-semibold text-foreground">SKU / Kode (Opsional)</label>
-                <Input
-                  placeholder="BEV-009"
-                  value={newProdSku}
-                  onChange={(e) => setNewProdSku(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+
               <div>
                 <label className="text-xs font-semibold text-foreground">Stok Awal</label>
                 <Input
                   type="number"
+                  placeholder="50"
                   value={newProdStock}
                   onChange={(e) => setNewProdStock(e.target.value)}
+                  required
                   className="mt-1"
                 />
               </div>
             </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={() => setAddProductModalOpen(false)}>Batal</Button>
-              <Button type="submit" className="font-bold">Simpan ke Katalog</Button>
+
+            <DialogFooter className="pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddProductModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                Simpan & Tambahkan
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

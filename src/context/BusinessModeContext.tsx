@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
+import { useAuth } from "./AuthContext";
 
 export type BusinessArchetype = "FNB" | "RETAIL" | "SALON" | "SERVICES" | "WHOLESALE" | "HYBRID";
 
@@ -66,26 +67,35 @@ interface BusinessModeContextType {
 
 const BusinessModeContext = createContext<BusinessModeContextType | null>(null);
 
-const MODE_STORAGE_KEY = "nstok_business_mode_v3";
-
 export function BusinessModeProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [mode, setModeState] = useState<BusinessArchetype>("FNB");
 
+  const getStorageKey = () => {
+    return user?.organizationId ? `nstok_${user.organizationId}_business_mode` : "nstok_business_mode_v3";
+  };
+
   useEffect(() => {
-    const saved = loadFromLocalStorage<BusinessArchetype>(MODE_STORAGE_KEY, "FNB");
-    setModeState(saved);
-  }, []);
+    if (user?.businessType && ARCHETYPES[user.businessType as BusinessArchetype]) {
+      setModeState(user.businessType as BusinessArchetype);
+    } else {
+      const key = getStorageKey();
+      const saved = loadFromLocalStorage<BusinessArchetype>(key, "FNB");
+      setModeState(saved);
+    }
+  }, [user?.businessType, user?.organizationId]);
 
   const setMode = (newMode: BusinessArchetype) => {
     setModeState(newMode);
-    saveToLocalStorage(MODE_STORAGE_KEY, newMode);
+    const key = getStorageKey();
+    saveToLocalStorage(key, newMode);
   };
 
   return (
     <BusinessModeContext.Provider
       value={{
         mode,
-        modeInfo: ARCHETYPES[mode],
+        modeInfo: ARCHETYPES[mode] || ARCHETYPES.FNB,
         setMode,
       }}
     >

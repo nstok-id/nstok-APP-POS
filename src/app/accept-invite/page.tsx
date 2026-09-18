@@ -11,7 +11,7 @@ function AcceptInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "INV-SAMPLE-TOKEN-99218";
-  const { login } = useAuth();
+  const { register, login } = useAuth();
 
   const [staffName, setStaffName] = useState("");
   const [password, setPassword] = useState("");
@@ -26,13 +26,13 @@ function AcceptInviteContent() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Join organization directly without creating a duplicate workspace
-    await login(`${staffName.toLowerCase().replace(/\s+/g, "")}@omnipos.id`, "KASIR", inviteOrgName);
+    const email = `${staffName.toLowerCase().replace(/\s+/g, "")}@omnipos.id`;
+    await register(staffName, email, password, "KASIR");
     setIsJoined(true);
 
     setTimeout(() => {
       router.push("/pos");
-    }, 1200);
+    }, 1000);
   };
 
   return (
