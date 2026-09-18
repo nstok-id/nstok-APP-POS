@@ -1,0 +1,36 @@
+name: Auto-Sync Knowledge Graph & RAG
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  extract-and-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Extract Knowledge & AST
+        run: |
+          node scripts/extract-knowledge.mjs
+
+      - name: Dispatch Knowledge Payload
+        env:
+          SYNC_URL: ${{ secrets.KNOWLEDGE_SYNC_URL }}
+          SYNC_SECRET: ${{ secrets.KNOWLEDGE_SYNC_SECRET }}
+        run: |
+          if [ -n "$SYNC_URL" ]; then
+            curl -X POST "$SYNC_URL" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $SYNC_SECRET" \
+              -d @graphify-out/graph.json
+          else
+            echo "KNOWLEDGE_SYNC_URL not configured, skipped cloud dispatch."
+          fi
