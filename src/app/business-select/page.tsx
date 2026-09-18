@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
   UtensilsCrossed, 
@@ -10,14 +10,20 @@ import {
   Boxes, 
   Globe, 
   ArrowRight,
-  CheckCircle2
+  CheckCircle2,
+  Store
 } from "lucide-react";
 import { useBusinessMode, BusinessArchetype, ARCHETYPES } from "@/context/BusinessModeContext";
+import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function BusinessSelectPage() {
   const router = useRouter();
   const { mode, setMode } = useBusinessMode();
+  const { settings, updateSettings } = useWorkspaceSettings();
+
+  const [customBusinessName, setCustomBusinessName] = useState(settings.businessName || "Kopi & Usaha Saya");
 
   const getArchetypeIcon = (type: BusinessArchetype) => {
     switch (type) {
@@ -32,6 +38,9 @@ export default function BusinessSelectPage() {
 
   const handleSelectAndProceed = (type: BusinessArchetype) => {
     setMode(type);
+    if (customBusinessName) {
+      updateSettings({ businessName: customBusinessName });
+    }
     router.push("/pos");
   };
 
@@ -40,13 +49,28 @@ export default function BusinessSelectPage() {
       <div className="w-full max-w-4xl space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Pilih Jenis Usaha & Arketipe Toko Anda
+            Pilih Jenis Usaha & Konfigurasi Toko Anda
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
             Sistem nstok-app-POS akan otomatis mengaktifkan modul khusus (KDS Dapur, Denah Meja, Barcode Scanner, Work Order, atau Tiered Pricing) sesuai pilihan Anda.
           </p>
         </div>
 
+        {/* Business Name Input Card */}
+        <div className="max-w-md mx-auto p-4 rounded-2xl border border-border bg-card shadow-xs space-y-2">
+          <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Store className="w-4 h-4 text-primary" />
+            <span>Nama Bisnis / Toko Anda</span>
+          </label>
+          <Input
+            placeholder="Contoh: Kopi Kenangan, Minimarket Berkah, dll"
+            value={customBusinessName}
+            onChange={(e) => setCustomBusinessName(e.target.value)}
+            className="text-xs font-medium"
+          />
+        </div>
+
+        {/* Archetype Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(Object.keys(ARCHETYPES) as BusinessArchetype[]).map((type) => {
             const info = ARCHETYPES[type];
@@ -88,9 +112,9 @@ export default function BusinessSelectPage() {
                   size="sm"
                   variant={isSelected ? "default" : "outline"}
                   onClick={() => handleSelectAndProceed(type)}
-                  className="w-full text-xs font-bold"
+                  className="w-full text-xs font-bold cursor-pointer"
                 >
-                  Pilih & Lanjut ke Kasir
+                  Pilih & Masuk ke Kasir
                 </Button>
               </div>
             );

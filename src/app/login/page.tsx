@@ -17,7 +17,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("owner@omnipos.id");
   const [password, setPassword] = useState("password123");
   const [role, setRole] = useState<Role>("OWNER");
-  const [businessName, setBusinessName] = useState("Kopi Kenangan Baru");
   const [userName, setUserName] = useState("Bambang Pemilik");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,9 +25,10 @@ export default function LoginPage() {
     setIsLoading(true);
 
     if (isRegister) {
-      // Auto-provisioning workspace for new owner
-      updateSettings({ businessName });
-      await login(email, "OWNER", businessName);
+      // Auto-provisioning workspace for new owner without requiring businessName upfront
+      const initialBizName = userName ? `Toko ${userName}` : "Toko Baru Saya";
+      updateSettings({ businessName: initialBizName });
+      await login(email, "OWNER", initialBizName);
       router.push("/business-select");
     } else {
       await login(email, role);
@@ -59,7 +59,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setIsRegister(false)}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               !isRegister ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -68,53 +68,37 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setIsRegister(true)}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
               isRegister ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Daftar Toko Baru (Owner)
+            Daftar Akun Baru (Owner)
           </button>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {isRegister ? (
-            <>
-              <div>
-                <label className="text-xs font-semibold text-foreground">Nama Pemilik</label>
-                <div className="relative mt-1">
-                  <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    placeholder="Nama Lengkap Anda"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    required
-                    className="pl-9 text-xs"
-                  />
-                </div>
+            <div>
+              <label className="text-xs font-semibold text-foreground">Nama Pemilik / Akun</label>
+              <div className="relative mt-1">
+                <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  placeholder="Nama Lengkap Anda"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  required
+                  className="pl-9 text-xs"
+                />
               </div>
-
-              <div>
-                <label className="text-xs font-semibold text-foreground">Nama Bisnis / Toko</label>
-                <div className="relative mt-1">
-                  <Store className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    placeholder="Contoh: Kopi Nusantara"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    required
-                    className="pl-9 text-xs"
-                  />
-                </div>
-              </div>
-            </>
+            </div>
           ) : (
             <div>
               <label className="text-xs font-semibold text-foreground">Peran Pengguna (Role)</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
-                className="mt-1 w-full h-9 rounded-lg border border-input bg-background px-3 py-1 text-xs font-medium focus:ring-2 focus:ring-primary"
+                className="mt-1 w-full h-9 rounded-lg border border-input bg-background px-3 py-1 text-xs font-medium focus:ring-2 focus:ring-primary cursor-pointer"
               >
                 <option value="OWNER">👑 Owner (Pemilik Workspace - Akses Penuh)</option>
                 <option value="MANAGER">👔 Outlet Manager</option>
@@ -130,7 +114,7 @@ export default function LoginPage() {
               <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 type="email"
-                placeholder="nama@toko.com"
+                placeholder="nama@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -157,15 +141,15 @@ export default function LoginPage() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full font-bold text-xs h-10 mt-2 shadow-md flex items-center justify-center gap-1.5"
+            className="w-full font-bold text-xs h-10 mt-2 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <span>{isRegister ? "Daftar & Auto-Provisioning Workspace" : "Masuk ke Sistem POS"}</span>
+            <span>{isRegister ? "Daftar & Pilih Jenis Usaha" : "Masuk ke Sistem POS"}</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
 
           {isRegister && (
             <p className="text-[11px] text-muted-foreground text-center">
-              Pendaftaran otomatis membuat 1 workspace mandiri dan pengaturan toko default.
+              Setelah mendaftar, Anda akan langsung memilih jenis usaha dan nama toko di halaman selanjutnya.
             </p>
           )}
         </form>
