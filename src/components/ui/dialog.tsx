@@ -17,14 +17,14 @@ export function Dialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in"
         onClick={() => onOpenChange(false)}
       />
       {/* Dialog container */}
-      <div className="relative z-50 w-full max-w-lg animate-in zoom-in-95 duration-200">
+      <div className="relative z-50 w-full max-w-lg my-auto animate-in zoom-in-95 duration-200">
         {children}
       </div>
     </div>
@@ -44,7 +44,7 @@ export function DialogContent({
     <div
       className={twMerge(
         clsx(
-          "relative w-full rounded-xl border border-border bg-card p-6 shadow-2xl text-card-foreground",
+          "relative w-full rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-2xl text-card-foreground max-h-[88vh] overflow-y-auto",
           className
         )
       )}
@@ -52,9 +52,9 @@ export function DialogContent({
       {onClose && (
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
+          className="absolute right-3.5 top-3.5 rounded-full p-1 bg-muted text-muted-foreground opacity-70 transition-opacity hover:opacity-100 hover:text-foreground focus:outline-none cursor-pointer"
         >
-          <X className="h-4 w-4 text-muted-foreground" />
+          <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </button>
       )}

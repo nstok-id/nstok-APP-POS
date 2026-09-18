@@ -90,7 +90,7 @@ export function ProductGrid({
                 <div
                   key={product.id}
                   onClick={() => !isOutOfStock && addToCart(product, 1)}
-                  className={`group relative rounded-xl border border-border bg-card p-3.5 flex flex-col justify-between transition-all select-none cursor-pointer hover:border-primary/50 hover:shadow-md ${
+                  className={`group relative rounded-2xl border border-border bg-card p-3 sm:p-3.5 flex flex-col justify-between transition-all select-none cursor-pointer hover:border-emerald-500/50 hover:shadow-md active:scale-95 touch-manipulation ${
                     isOutOfStock ? "opacity-50 pointer-events-none" : ""
                   }`}
                 >

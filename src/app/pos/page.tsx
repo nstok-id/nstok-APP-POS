@@ -15,7 +15,7 @@ import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence
 import { useCart } from "@/context/CartContext";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
 import { useAuth } from "@/context/AuthContext";
-import { History, Plus, Loader2 } from "lucide-react";
+import { History, Plus, Loader2, ShoppingBag, X, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -23,8 +23,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 export default function PosPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const { setDiscountPercent, setDiscountAmount } = useCart();
-  const { settings } = useWorkspaceSettings();
+  const { items, grandTotal, setDiscountPercent, setDiscountAmount } = useCart();
+  const { settings, formatCurrency } = useWorkspaceSettings();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -39,6 +39,7 @@ export default function PosPage() {
   const [pendingVoidTrx, setPendingVoidTrx] = useState<Transaction | null>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [addProductModalOpen, setAddProductModalOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   // New Product Form state
   const [newProdName, setNewProdName] = useState("");
@@ -204,29 +205,29 @@ export default function PosPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-background">
       {/* Top Header */}
       <HeaderKasir
         onOpenHistory={() => setHistoryModalOpen(true)}
       />
 
       {/* Main Split Screen */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Product Grid */}
-        <div className="flex-1 overflow-y-auto bg-muted/20 p-4 relative">
-          <div className="flex items-center justify-between mb-4">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Left / Full: Product Grid */}
+        <div className="flex-1 overflow-y-auto bg-muted/20 p-3 sm:p-4 pb-28 lg:pb-4 relative">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-foreground">Etalase Kasir</h2>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">Etalase Kasir</h2>
               <p className="text-xs text-muted-foreground">
                 Toko: <span className="font-semibold text-emerald-500">{user.organizationName}</span> • Vertikal: {user.businessType}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setHistoryModalOpen(true)}
-                className="gap-1 text-xs cursor-pointer"
+                className="gap-1 text-xs cursor-pointer h-8"
               >
                 <History className="w-3.5 h-3.5" />
                 <span>Riwayat ({transactions.length})</span>
@@ -234,7 +235,7 @@ export default function PosPage() {
               <Button
                 size="sm"
                 onClick={() => setAddProductModalOpen(true)}
-                className="gap-1 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white"
+                className="gap-1 text-xs cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white h-8"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Tambah Menu</span>
@@ -248,8 +249,8 @@ export default function PosPage() {
           />
         </div>
 
-        {/* Right: Cart Sidebar */}
-        <div className="w-96 border-l border-border bg-card flex flex-col shadow-lg">
+        {/* Right: Cart Sidebar (Desktop only: lg:flex) */}
+        <div className="hidden lg:flex w-96 border-l border-border bg-card flex-col shadow-lg shrink-0">
           <CartSidebar
             customersList={customers}
             onCheckout={() => setPaymentModalOpen(true)}
@@ -257,6 +258,74 @@ export default function PosPage() {
           />
         </div>
       </div>
+
+      {/* Floating Bottom Cart Action Bar for Mobile & Tablets (lg:hidden) */}
+      {items.length > 0 && (
+        <div 
+          className="lg:hidden fixed bottom-14 inset-x-3 z-30 animate-in slide-in-from-bottom duration-200"
+          style={{ bottom: "calc(3.75rem + env(safe-area-inset-bottom, 0px))" }}
+        >
+          <button
+            onClick={() => setMobileCartOpen(true)}
+            className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white shadow-2xl shadow-emerald-950/60 flex items-center justify-between font-bold text-xs sm:text-sm cursor-pointer border border-emerald-400/40"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-white text-emerald-700 flex items-center justify-center font-black text-xs">
+                {items.reduce((a, b) => a + b.quantity, 0)}
+              </span>
+              <span className="truncate max-w-[130px] sm:max-w-none">{items.length} Menu</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-white">{formatCurrency(grandTotal)}</span>
+              <span className="text-[11px] bg-emerald-700/80 px-2.5 py-1 rounded-xl flex items-center gap-1 font-bold">
+                Keranjang & Bayar →
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Slide-Up Cart Bottom Sheet Drawer (lg:hidden) */}
+      {mobileCartOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-200">
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+            onClick={() => setMobileCartOpen(false)}
+          />
+          <div 
+            className="relative z-50 bg-card border-t border-border rounded-t-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          >
+            <div className="px-4 py-2.5 border-b border-border flex items-center justify-between bg-muted/40 shrink-0">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs font-bold text-foreground">
+                  Keranjang ({items.reduce((a, b) => a + b.quantity, 0)} Item)
+                </span>
+              </div>
+              <button
+                onClick={() => setMobileCartOpen(false)}
+                className="p-1.5 rounded-full bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[calc(90vh-3.5rem)]">
+              <CartSidebar
+                customersList={customers}
+                onCheckout={() => {
+                  setMobileCartOpen(false);
+                  setPaymentModalOpen(true);
+                }}
+                onOpenApprovalModal={(disc) => {
+                  setMobileCartOpen(false);
+                  handleOpenDiscountApproval(disc);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       <PaymentModal

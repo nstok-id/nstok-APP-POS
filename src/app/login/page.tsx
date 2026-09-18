@@ -85,8 +85,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-slate-950 text-slate-100 font-sans">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="min-h-screen w-full overflow-y-auto p-4 py-8 sm:py-12 flex flex-col justify-start items-center bg-slate-950 text-slate-100 font-sans">
+      <div className="w-full max-w-md my-auto bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Top Header */}
         <div className="p-6 sm:p-8 bg-gradient-to-b from-emerald-500/10 to-transparent border-b border-zinc-800/80 text-center space-y-2">
           <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-zinc-950 flex items-center justify-center font-black text-xl mx-auto shadow-lg shadow-emerald-500/20">

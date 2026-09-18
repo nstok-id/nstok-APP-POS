@@ -84,7 +84,7 @@ export function SidebarNav() {
   const visibleNavItems = NAV_ITEMS.filter((item) => canAccess(item.allowedRoles));
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col justify-between h-screen shrink-0 sticky top-0">
+    <aside className="hidden lg:flex w-64 bg-card border-r border-border flex-col justify-between h-screen shrink-0 sticky top-0">
       <div>
         {/* Workspace Brand Header */}
         <div className="p-4 border-b border-border flex items-center gap-3">

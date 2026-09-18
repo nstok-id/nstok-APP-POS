@@ -25,11 +25,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 export function CartSidebar({
   onCheckout,
   onOpenApprovalModal,
-  customersList = []
+  customersList = [],
+  className = ""
 }: {
   onCheckout: () => void;
   onOpenApprovalModal: (discountVal: number) => void;
   customersList?: Customer[];
+  className?: string;
 }) {
   const { 
     items, 
@@ -77,7 +79,7 @@ export function CartSidebar({
   };
 
   return (
-    <aside className="w-80 lg:w-96 bg-card border-l border-border flex flex-col h-[calc(100vh-3.5rem)] sticky top-14 shrink-0">
+    <aside className={`w-full flex flex-col h-full bg-card ${className}`}>
       {/* Header with Table / Customer / Hold count */}
       <div className="p-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
