@@ -216,17 +216,6 @@ export function MobileBottomNav() {
                   <span className="flex-1">Pengaturan Toko & POS</span>
                 </button>
               )}
-
-              <button
-                onClick={() => {
-                  setDrawerOpen(false);
-                  router.push("/business-select");
-                }}
-                className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground text-left transition-colors cursor-pointer"
-              >
-                <Store className="w-4 h-4 text-emerald-500" />
-                <span className="flex-1">Ganti Vertikal / Konfigurasi Toko</span>
-              </button>
             </div>
 
             {/* Logout */}

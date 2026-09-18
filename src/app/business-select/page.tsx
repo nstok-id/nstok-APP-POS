@@ -34,6 +34,13 @@ export default function BusinessSelectPage() {
       router.push("/login");
       return;
     }
+
+    // 1 Akun = 1 Jenis Bisnis: jika sudah pernah onboarding, kunci dan langsung arahkan ke POS
+    if (user?.hasCompletedOnboarding && user?.businessType) {
+      router.push("/pos");
+      return;
+    }
+
     if (user?.organizationName) {
       setCustomBusinessName(user.organizationName);
     } else {
