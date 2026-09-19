@@ -17,10 +17,11 @@ let tablesInitialized = false;
 export async function ensureTablesExist() {
   if (tablesInitialized || !client) return;
   try {
+    // 1. Create tables if they do not exist
     await client.unsafe(`
       CREATE TABLE IF NOT EXISTS organizations (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
         slug TEXT UNIQUE,
         business_type TEXT NOT NULL DEFAULT 'RETAIL',
         logo_url TEXT,
@@ -29,9 +30,9 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
         email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
+        password TEXT NOT NULL DEFAULT '',
         phone TEXT,
         avatar_url TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -61,7 +62,7 @@ export async function ensureTablesExist() {
       CREATE TABLE IF NOT EXISTS workspace_settings (
         id TEXT PRIMARY KEY,
         organization_id TEXT UNIQUE NOT NULL,
-        business_name TEXT NOT NULL,
+        business_name TEXT NOT NULL DEFAULT '',
         business_address TEXT,
         phone TEXT,
         email TEXT,
@@ -84,7 +85,7 @@ export async function ensureTablesExist() {
       CREATE TABLE IF NOT EXISTS outlets (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
         address TEXT,
         phone TEXT,
         opening_hours TEXT,
@@ -95,12 +96,12 @@ export async function ensureTablesExist() {
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
         outlet_id TEXT,
-        name TEXT NOT NULL,
-        sku TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        sku TEXT NOT NULL DEFAULT '',
         barcode TEXT,
         category TEXT NOT NULL DEFAULT 'Umum',
         cost_price NUMERIC(12, 2) NOT NULL DEFAULT '0',
-        selling_price NUMERIC(12, 2) NOT NULL,
+        selling_price NUMERIC(12, 2) NOT NULL DEFAULT '0',
         wholesale_price NUMERIC(12, 2),
         min_wholesale_qty INTEGER DEFAULT 10,
         stock INTEGER NOT NULL DEFAULT 0,
@@ -113,8 +114,8 @@ export async function ensureTablesExist() {
       CREATE TABLE IF NOT EXISTS customers (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT '',
         email TEXT,
         address TEXT,
         loyalty_points INTEGER NOT NULL DEFAULT 0,
@@ -127,7 +128,7 @@ export async function ensureTablesExist() {
       CREATE TABLE IF NOT EXISTS suppliers (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
         contact_person TEXT,
         phone TEXT,
         email TEXT,
@@ -139,7 +140,7 @@ export async function ensureTablesExist() {
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
-        cashier_name TEXT NOT NULL,
+        cashier_name TEXT NOT NULL DEFAULT '',
         starting_cash NUMERIC(12, 2) NOT NULL DEFAULT '0',
         expected_cash NUMERIC(12, 2) NOT NULL DEFAULT '0',
         actual_cash NUMERIC(12, 2),
@@ -156,18 +157,18 @@ export async function ensureTablesExist() {
         shift_id TEXT,
         invoice_number TEXT UNIQUE NOT NULL,
         cashier_id TEXT NOT NULL,
-        cashier_name TEXT NOT NULL,
+        cashier_name TEXT NOT NULL DEFAULT '',
         customer_id TEXT,
         customer_name TEXT,
-        subtotal NUMERIC(14, 2) NOT NULL,
+        subtotal NUMERIC(14, 2) NOT NULL DEFAULT '0',
         discount NUMERIC(14, 2) NOT NULL DEFAULT '0',
         tax NUMERIC(14, 2) NOT NULL DEFAULT '0',
-        grand_total NUMERIC(14, 2) NOT NULL,
+        grand_total NUMERIC(14, 2) NOT NULL DEFAULT '0',
         payment_method TEXT NOT NULL DEFAULT 'CASH',
-        paid_amount NUMERIC(14, 2) NOT NULL,
+        paid_amount NUMERIC(14, 2) NOT NULL DEFAULT '0',
         change_amount NUMERIC(14, 2) NOT NULL DEFAULT '0',
         status TEXT NOT NULL DEFAULT 'COMPLETED',
-        items_json TEXT NOT NULL,
+        items_json TEXT NOT NULL DEFAULT '[]',
         table_number TEXT,
         order_notes TEXT,
         void_reason TEXT,
@@ -175,8 +176,120 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
       );
     `);
+
+    // 2. Patch any existing tables with missing columns (ALTER TABLE ADD COLUMN IF NOT EXISTS)
+    await client.unsafe(`
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS slug TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS business_type TEXT NOT NULL DEFAULT 'RETAIL';
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url TEXT;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT NOT NULL DEFAULT '';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS user_id TEXT;
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'KASIR';
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS deactivated_reason TEXT;
+      ALTER TABLE team_members ADD COLUMN IF NOT EXISTS joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS business_name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS business_address TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS phone TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS npwp TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'IDR';
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS tax_percentage NUMERIC(5, 2) NOT NULL DEFAULT '0.00';
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS tax_enabled BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS rounding_rule TEXT NOT NULL DEFAULT 'NONE';
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS receipt_paper_size TEXT NOT NULL DEFAULT '58mm';
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS receipt_header TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS receipt_footer TEXT;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS receipt_show_logo BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS low_stock_threshold_default INTEGER NOT NULL DEFAULT 5;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS approval_discount_threshold_percent INTEGER NOT NULL DEFAULT 20;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS approval_require_void BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS session_timeout_minutes INTEGER NOT NULL DEFAULT 60;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS active_modules TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS outlet_id TEXT;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT NOT NULL DEFAULT '';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Umum';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(12, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS selling_price NUMERIC(12, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS wholesale_price NUMERIC(12, 2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS min_wholesale_qty INTEGER DEFAULT 10;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'pcs';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock_alert INTEGER NOT NULL DEFAULT 5;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_spent NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'BRONZE';
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS user_id TEXT;
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS cashier_name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS starting_cash NUMERIC(12, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS expected_cash NUMERIC(12, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS actual_cash NUMERIC(12, 2);
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS discrepancy NUMERIC(12, 2);
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS total_sales NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'OPEN';
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS notes TEXT;
+
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS shift_id TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS invoice_number TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS cashier_id TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS cashier_name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS customer_id TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS customer_name TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS subtotal NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS discount NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS tax NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS grand_total NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'CASH';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS change_amount NUMERIC(14, 2) NOT NULL DEFAULT '0';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'COMPLETED';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS items_json TEXT NOT NULL DEFAULT '[]';
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS table_number TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS order_notes TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS void_reason TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS void_approved_by TEXT;
+      ALTER TABLE transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+    `);
+
     tablesInitialized = true;
-    console.log("Supabase DDL migration applied successfully.");
+    console.log("Supabase DDL and column migration applied successfully.");
   } catch (err) {
     console.error("ensureTablesExist error:", err);
   }
