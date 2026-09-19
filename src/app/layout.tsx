@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id">
+    <html lang="id" className="dark">
       <body className="antialiased min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
         <AuthProvider>
           <WorkspaceSettingsProvider>

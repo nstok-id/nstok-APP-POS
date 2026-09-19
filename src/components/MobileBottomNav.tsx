@@ -69,7 +69,7 @@ export function MobileBottomNav() {
     <>
       {/* Fixed Bottom Navigation Bar (Mobile / Tablet only: lg:hidden) */}
       <nav 
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-2 py-1.5 flex items-center justify-around shadow-2xl select-none"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 px-2 py-1.5 flex items-center justify-around shadow-2xl select-none"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {primaryTabs.map((tab) => {
@@ -82,23 +82,23 @@ export function MobileBottomNav() {
               href={tab.href}
               className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all relative ${
                 isActive
-                  ? "text-emerald-500 font-bold"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-emerald-400 font-bold"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? "scale-110 text-emerald-500" : ""}`} />
+                <Icon className={`w-5 h-5 transition-transform ${isActive ? "scale-110 text-emerald-400" : ""}`} />
                 {tab.badge && tab.badge > 0 && (
                   <span className="absolute -top-1 -right-2.5 bg-emerald-600 text-white font-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
                     {tab.badge > 99 ? "99+" : tab.badge}
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] mt-1 ${isActive ? "font-bold text-emerald-500" : "font-medium"}`}>
+              <span className={`text-[10px] mt-1 ${isActive ? "font-bold text-emerald-400" : "font-medium text-zinc-400"}`}>
                 {tab.name}
               </span>
               {isActive && (
-                <span className="w-1 h-1 rounded-full bg-emerald-500 mt-0.5" />
+                <span className="w-1 h-1 rounded-full bg-emerald-400 mt-0.5" />
               )}
             </Link>
           );
@@ -107,8 +107,8 @@ export function MobileBottomNav() {
         {/* More Menu Drawer Trigger */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl text-muted-foreground hover:text-foreground cursor-pointer ${
-            drawerOpen ? "text-emerald-500 font-bold" : ""
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl text-zinc-400 hover:text-zinc-200 cursor-pointer ${
+            drawerOpen ? "text-emerald-400 font-bold" : ""
           }`}
         >
           <MoreHorizontal className="w-5 h-5" />
@@ -121,29 +121,29 @@ export function MobileBottomNav() {
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-200">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs"
             onClick={() => setDrawerOpen(false)}
           />
 
           {/* Drawer Sheet */}
           <div 
-            className="relative z-50 bg-card border-t border-border rounded-t-3xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom duration-300"
+            className="relative z-50 bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom duration-300 text-zinc-100"
             style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
                   <Store className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-foreground">{settings.businessName}</h3>
-                  <p className="text-[11px] text-muted-foreground">{user?.role} • {user?.name}</p>
+                  <h3 className="font-bold text-sm text-zinc-100">{settings.businessName}</h3>
+                  <p className="text-[11px] text-zinc-400">{user?.role} • {user?.name}</p>
                 </div>
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-1.5 rounded-full bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                className="p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -151,11 +151,11 @@ export function MobileBottomNav() {
 
             {/* Quick Status Pill Bar */}
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded-xl bg-muted/50 border border-border flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
+              <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-zinc-400" />
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Status Shift</p>
-                  <p className={`font-bold ${isOpen ? "text-emerald-500" : "text-amber-500"}`}>
+                  <p className="text-[10px] text-zinc-400">Status Shift</p>
+                  <p className={`font-bold ${isOpen ? "text-emerald-400" : "text-amber-400"}`}>
                     {isOpen ? "Shift Aktif" : "Shift Tutup"}
                   </p>
                 </div>
@@ -164,19 +164,19 @@ export function MobileBottomNav() {
               <button
                 onClick={() => triggerForceSync()}
                 disabled={syncStatus.isSyncing}
-                className="p-2.5 rounded-xl bg-muted/50 border border-border flex items-center gap-2 text-left cursor-pointer hover:bg-muted"
+                className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center gap-2 text-left cursor-pointer hover:bg-zinc-800"
               >
-                <RefreshCw className={`w-4 h-4 text-emerald-500 ${syncStatus.isSyncing ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-4 h-4 text-emerald-400 ${syncStatus.isSyncing ? "animate-spin" : ""}`} />
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Dual Sync</p>
-                  <p className="font-bold text-foreground">{syncStatus.isSyncing ? "Sinkron..." : "Tersinkron"}</p>
+                  <p className="text-[10px] text-zinc-400">Dual Sync</p>
+                  <p className="font-bold text-zinc-200">{syncStatus.isSyncing ? "Sinkron..." : "Tersinkron"}</p>
                 </div>
               </button>
             </div>
 
             {/* Menu Links */}
             <div className="space-y-1.5">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase px-1">Manajemen & Pengaturan</p>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase px-1">Manajemen & Pengaturan</p>
 
               {canAccess(["OWNER", "MANAGER"]) && (
                 <button
@@ -184,9 +184,9 @@ export function MobileBottomNav() {
                     setDrawerOpen(false);
                     router.push("/team");
                   }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground text-left transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 hover:bg-zinc-800 border border-zinc-800/80 text-xs font-semibold text-zinc-200 text-left transition-colors cursor-pointer"
                 >
-                  <UsersRound className="w-4 h-4 text-emerald-500" />
+                  <UsersRound className="w-4 h-4 text-emerald-400" />
                   <span className="flex-1">Manajemen Tim & Karyawan</span>
                 </button>
               )}
@@ -197,9 +197,9 @@ export function MobileBottomNav() {
                     setDrawerOpen(false);
                     router.push("/suppliers");
                   }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground text-left transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 hover:bg-zinc-800 border border-zinc-800/80 text-xs font-semibold text-zinc-200 text-left transition-colors cursor-pointer"
                 >
-                  <Truck className="w-4 h-4 text-emerald-500" />
+                  <Truck className="w-4 h-4 text-emerald-400" />
                   <span className="flex-1">Pemasok & Supplier</span>
                 </button>
               )}
@@ -210,22 +210,22 @@ export function MobileBottomNav() {
                     setDrawerOpen(false);
                     router.push("/settings");
                   }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground text-left transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-zinc-950/70 hover:bg-zinc-800 border border-zinc-800/80 text-xs font-semibold text-zinc-200 text-left transition-colors cursor-pointer"
                 >
-                  <Settings className="w-4 h-4 text-emerald-500" />
+                  <Settings className="w-4 h-4 text-emerald-400" />
                   <span className="flex-1">Pengaturan Toko & POS</span>
                 </button>
               )}
             </div>
 
             {/* Logout */}
-            <div className="pt-2 border-t border-border">
+            <div className="pt-2 border-t border-zinc-800">
               <button
                 onClick={() => {
                   setDrawerOpen(false);
                   logout();
                 }}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20 transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Keluar dari Akun</span>

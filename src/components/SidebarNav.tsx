@@ -84,16 +84,16 @@ export function SidebarNav() {
   const visibleNavItems = NAV_ITEMS.filter((item) => canAccess(item.allowedRoles));
 
   return (
-    <aside className="hidden lg:flex w-64 bg-card border-r border-border flex-col justify-between h-screen shrink-0 sticky top-0">
+    <aside className="hidden lg:flex w-64 bg-zinc-900 border-r border-zinc-800 flex-col justify-between h-screen shrink-0 sticky top-0 select-none">
       <div>
         {/* Workspace Brand Header */}
-        <div className="p-4 border-b border-border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+        <div className="p-4 border-b border-zinc-800 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-lg shrink-0">
             <Store className="w-5 h-5" />
           </div>
           <div className="overflow-hidden">
-            <h2 className="font-bold text-sm truncate text-foreground">{settings.businessName}</h2>
-            <p className="text-xs text-muted-foreground truncate">{user?.role || "KASIR"} • {user?.name}</p>
+            <h2 className="font-bold text-sm truncate text-zinc-100">{settings.businessName}</h2>
+            <p className="text-xs text-zinc-400 truncate">{user?.role || "KASIR"} • {user?.name}</p>
           </div>
         </div>
 
@@ -107,16 +107,16 @@ export function SidebarNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 font-semibold"
-                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold"
+                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-primary-foreground" : "text-muted-foreground"}`} />
+                <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-zinc-400"}`} />
                 <span className="flex-1">{item.name}</span>
                 {item.badge && (
-                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold">
+                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-bold">
                     {item.badge}
                   </span>
                 )}
@@ -127,18 +127,18 @@ export function SidebarNav() {
       </div>
 
       {/* Footer & Logout */}
-      <div className="p-3 border-t border-border">
-        <div className="p-2.5 rounded-lg bg-muted/40 border border-border/50 mb-2 flex items-center justify-between">
+      <div className="p-3 border-t border-zinc-800">
+        <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 mb-2 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase">Ekosistem nStok</p>
-            <p className="text-xs font-medium text-foreground">v3.0.0 Unified POS</p>
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Ekosistem nStok</p>
+            <p className="text-xs font-semibold text-zinc-300">v3.0.0 Unified POS</p>
           </div>
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Dual Persistence Active" />
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Dual Persistence Active" />
         </div>
 
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors font-medium"
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs text-red-400 hover:bg-red-500/10 transition-colors font-semibold cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
           <span>Keluar Sesi</span>
