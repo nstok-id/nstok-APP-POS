@@ -1,12 +1,20 @@
 {
   "repository": "nstok-app-POS",
   "version": "3.0.0",
-  "extractedAt": "2026-09-18T15:04:17.487Z",
+  "extractedAt": "2026-09-19T03:47:23.572Z",
   "stats": {
-    "totalCodeNodes": 37,
-    "totalDocumentNodes": 4
+    "totalCodeNodes": 43,
+    "totalDocumentNodes": 5
   },
   "nodes": [
+    {
+      "nodeId": "nstok-app-POS::next-env.d.ts",
+      "label": "next-env.d.ts",
+      "nodeType": "file",
+      "sourcePath": "next-env.d.ts",
+      "codeContent": "/// <reference types=\"next\" />\r\n/// <reference types=\"next/image-types/global\" />\r\n/// <reference path=\"./.next/types/routes.d.ts\" />\r\n\r\n// NOTE: This file should not be edited\r\n// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.\r\n...",
+      "dependsOn": []
+    },
     {
       "nodeId": "nstok-app-POS::src/app/accept-invite/page.tsx",
       "label": "page.tsx",
@@ -20,6 +28,17 @@
         "@/context/AuthContext",
         "@/components/ui/button",
         "@/components/ui/input"
+      ]
+    },
+    {
+      "nodeId": "nstok-app-POS::src/app/actions/cloud-sync.ts",
+      "label": "cloud-sync.ts",
+      "nodeType": "file",
+      "sourcePath": "src/app/actions/cloud-sync.ts",
+      "codeContent": "\"use server\";\n\nimport { db, ensureTablesExist, organizations, users, teamMembers, workspaceSettings, products, customers, transactions, cashierShifts, suppliers } from \"@/db\";\nimport { eq, desc, and } from \"drizzle-orm\";\nimport type { Product, Customer, Transaction, WorkspaceSettings, User, TeamMember, Supplier, CashierShift } from \"@/db\";\n\n// Helper to check if Cloud DB is configured\nexport async function isCloudDbConnected(): Promise<boolean> {\n  return !!db;\n}\n\n// ----------------------------...",
+      "dependsOn": [
+        "@/db",
+        "drizzle-orm"
       ]
     },
     {
@@ -58,13 +77,14 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/business-select/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { \n  UtensilsCrossed, \n  ShoppingBag, \n  Scissors, \n  Wrench, \n  Boxes, \n  Globe, \n  ArrowRight,\n  CheckCircle2\n} from \"lucide-react\";\nimport { useBusinessMode, BusinessArchetype, ARCHETYPES } from \"@/context/BusinessModeContext\";\nimport { Button } from \"@/components/ui/button\";\n\nexport default function BusinessSelectPage() {\n  const router = useRouter();\n  const { mode, setMode } = useBusinessMode();\n\n...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { \n  UtensilsCrossed, \n  ShoppingBag, \n  Scissors, \n  Wrench, \n  Boxes, \n  Globe, \n  ArrowRight,\n  CheckCircle2,\n  Store,\n  Sparkles,\n  Loader2\n} from \"lucide-react\";\nimport { useBusinessMode, BusinessArchetype, ARCHETYPES } from \"@/context/BusinessModeContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { useAuth } from \"@/context/AuthCont...",
       "dependsOn": [
         "react",
         "next/navigation",
         "lucide-react",
         "@/context/BusinessModeContext",
-        "@/components/ui/button"
+        "@/context/WorkspaceSettingsContext",
+        "@/context/AuthContext"
       ]
     },
     {
@@ -72,14 +92,17 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/customers/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { Users, Search, Plus, Award, Phone, Mail, Edit, Trash2 } from \"lucide-react\";\nimport { Customer } from \"@/db/schema\";\nimport { INITIAL_CUSTOMERS } from \"@/db/index\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { Button } from \"@/components/ui/butto...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { Users, Search, Plus, Award, Phone, Mail, Edit, Trash2, Loader2, Sparkles } from \"lucide-react\";\nimport { Customer } from \"@/db/schema\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { getStarterCustomers } from \"@/lib/starter-templates\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { useAuth } fro...",
       "dependsOn": [
         "react",
+        "next/navigation",
         "lucide-react",
         "@/db/schema",
-        "@/db/index",
         "@/lib/dual-persistence",
+        "@/lib/starter-templates",
         "@/context/WorkspaceSettingsContext",
+        "@/context/AuthContext",
+        "@/app/actions/cloud-sync",
         "@/components/HeaderKasir",
         "@/components/ui/button",
         "@/components/ui/input",
@@ -92,17 +115,19 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/dashboard/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { \n  TrendingUp, \n  Receipt, \n  ShoppingBag, \n  Users, \n  Package, \n  ArrowUpRight, \n  DollarSign,\n  Calendar,\n  ShieldAlert\n} from \"lucide-react\";\nimport { Transaction, Product, Customer } from \"@/db/schema\";\nimport { INITIAL_PRODUCTS, INITIAL_CUSTOMERS } from \"@/db/index\";\nimport { loadFromLocalStorage } from \"@/lib/dual-persistence\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { use...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { useAuth } from \"@/context/AuthContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { Card, Badge } from \"@/components/ui/atoms\";\nimport type { Product, Transaction, Customer } from \"@/db/schema\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimpor...",
       "dependsOn": [
         "react",
-        "lucide-react",
-        "@/db/schema",
-        "@/db/index",
-        "@/lib/dual-persistence",
-        "@/context/WorkspaceSettingsContext",
+        "next/navigation",
         "@/context/AuthContext",
+        "@/context/WorkspaceSettingsContext",
         "@/components/HeaderKasir",
-        "@/components/ui/atoms"
+        "@/components/ui/atoms",
+        "@/db/schema",
+        "@/lib/dual-persistence",
+        "@/lib/starter-templates",
+        "lucide-react",
+        "@/app/actions/cloud-sync"
       ]
     },
     {
@@ -110,14 +135,17 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/inventory/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { Package, Search, Plus, AlertTriangle, Edit, Trash2 } from \"lucide-react\";\nimport { Product } from \"@/db/schema\";\nimport { INITIAL_PRODUCTS } from \"@/db/index\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { Button } from \"@/components/ui/button\";\ni...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { Package, Search, Plus, AlertTriangle, Edit, Trash2, Loader2 } from \"lucide-react\";\nimport { Product } from \"@/db/schema\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { getStarterProducts } from \"@/lib/starter-templates\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { useAuth } from \"@/context/Au...",
       "dependsOn": [
         "react",
+        "next/navigation",
         "lucide-react",
         "@/db/schema",
-        "@/db/index",
         "@/lib/dual-persistence",
+        "@/lib/starter-templates",
         "@/context/WorkspaceSettingsContext",
+        "@/context/AuthContext",
+        "@/app/actions/cloud-sync",
         "@/components/HeaderKasir",
         "@/components/ui/button",
         "@/components/ui/input",
@@ -130,7 +158,7 @@
       "label": "layout.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/layout.tsx",
-      "codeContent": "import type { Metadata } from \"next\";\nimport \"./globals.css\";\nimport { AuthProvider } from \"@/context/AuthContext\";\nimport { WorkspaceSettingsProvider } from \"@/context/WorkspaceSettingsContext\";\nimport { ShiftProvider } from \"@/context/ShiftContext\";\nimport { BusinessModeProvider } from \"@/context/BusinessModeContext\";\nimport { CartProvider } from \"@/context/CartContext\";\nimport { SidebarNav } from \"@/components/SidebarNav\";\n\nexport const metadata: Metadata = {\n  title: \"nstok-app-POS | OmniPOS...",
+      "codeContent": "import type { Metadata } from \"next\";\nimport \"./globals.css\";\nimport { AuthProvider } from \"@/context/AuthContext\";\nimport { WorkspaceSettingsProvider } from \"@/context/WorkspaceSettingsContext\";\nimport { ShiftProvider } from \"@/context/ShiftContext\";\nimport { BusinessModeProvider } from \"@/context/BusinessModeContext\";\nimport { CartProvider } from \"@/context/CartContext\";\nimport { SidebarNav } from \"@/components/SidebarNav\";\nimport { MobileBottomNav } from \"@/components/MobileBottomNav\";\n\nexpor...",
       "dependsOn": [
         "next",
         "./globals.css",
@@ -139,7 +167,8 @@
         "@/context/ShiftContext",
         "@/context/BusinessModeContext",
         "@/context/CartContext",
-        "@/components/SidebarNav"
+        "@/components/SidebarNav",
+        "@/components/MobileBottomNav"
       ]
     },
     {
@@ -147,13 +176,12 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/login/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { Store, Lock, Mail, User, ArrowRight, ShieldCheck, Sparkles } from \"lucide-react\";\nimport { useAuth, Role } from \"@/context/AuthContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { Button } from \"@/components/ui/button\";\nimport { Input } from \"@/components/ui/input\";\n\nexport default function LoginPage() {\n  const router = useRouter();\n  const { log...",
+      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { Store, Lock, Mail, User, ArrowRight, ShieldCheck, AlertCircle, CheckCircle2, Eye, EyeOff } from \"lucide-react\";\nimport { useAuth } from \"@/context/AuthContext\";\nimport { Button } from \"@/components/ui/button\";\nimport { Input } from \"@/components/ui/input\";\n\nexport default function LoginPage() {\n  const router = useRouter();\n  const { user, isAuthenticated, isLoading: authLoading, login, ...",
       "dependsOn": [
         "react",
         "next/navigation",
         "lucide-react",
         "@/context/AuthContext",
-        "@/context/WorkspaceSettingsContext",
         "@/components/ui/button",
         "@/components/ui/input"
       ]
@@ -175,9 +203,10 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/pos/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { ProductGrid } from \"@/components/ProductGrid\";\nimport { CartSidebar } from \"@/components/CartSidebar\";\nimport { PaymentModal } from \"@/components/PaymentModal\";\nimport { ReceiptModal } from \"@/components/ReceiptModal\";\nimport { SupervisorApprovalModal } from \"@/components/SupervisorApprovalModal\";\nimport { TransactionHistoryModal } from \"@/components/TransactionHist...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { ProductGrid } from \"@/components/ProductGrid\";\nimport { CartSidebar } from \"@/components/CartSidebar\";\nimport { PaymentModal } from \"@/components/PaymentModal\";\nimport { ReceiptModal } from \"@/components/ReceiptModal\";\nimport { SupervisorApprovalModal } from \"@/components/SupervisorApprovalModal\";\nimport { TransactionHist...",
       "dependsOn": [
         "react",
+        "next/navigation",
         "@/components/HeaderKasir",
         "@/components/ProductGrid",
         "@/components/CartSidebar",
@@ -186,14 +215,16 @@
         "@/components/SupervisorApprovalModal",
         "@/components/TransactionHistoryModal",
         "@/db/schema",
-        "@/db/index",
+        "@/lib/starter-templates",
         "@/lib/dual-persistence",
         "@/context/CartContext",
         "@/context/WorkspaceSettingsContext",
+        "@/context/AuthContext",
         "lucide-react",
         "@/components/ui/button",
         "@/components/ui/input",
-        "@/components/ui/dialog"
+        "@/components/ui/dialog",
+        "@/app/actions/cloud-sync"
       ]
     },
     {
@@ -219,13 +250,16 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/suppliers/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { Truck, Search, Plus, Phone, Mail, MapPin, Edit, Trash2 } from \"lucide-react\";\nimport { Supplier } from \"@/db/schema\";\nimport { INITIAL_SUPPLIERS } from \"@/db/index\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { Button } from \"@/components/ui/button\";\nimport { Input } from \"@/components/ui/input\";\nimport { Card } from \"@...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { Truck, Search, Plus, Phone, Mail, MapPin, Edit, Trash2, Loader2 } from \"lucide-react\";\nimport { Supplier } from \"@/db/schema\";\nimport { INITIAL_SUPPLIERS } from \"@/db/initial-data\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { useAuth } from \"@/context/AuthContext\";\nimport { cloudGetSuppliers, cloudSaveSupplier, cloudDeleteSupplie...",
       "dependsOn": [
         "react",
+        "next/navigation",
         "lucide-react",
         "@/db/schema",
-        "@/db/index",
+        "@/db/initial-data",
         "@/lib/dual-persistence",
+        "@/context/AuthContext",
+        "@/app/actions/cloud-sync",
         "@/components/HeaderKasir",
         "@/components/ui/button",
         "@/components/ui/input",
@@ -238,18 +272,18 @@
       "label": "page.tsx",
       "nodeType": "file",
       "sourcePath": "src/app/team/page.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { \n  UsersRound, \n  Mail, \n  Plus, \n  ShieldAlert, \n  UserCheck, \n  UserX, \n  Trash2, \n  Copy, \n  Check, \n  Share2, \n  Shield, \n  Clock, \n  AlertTriangle \n} from \"lucide-react\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { useAuth, Role } from \"@/context/AuthContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/li...",
+      "codeContent": "\"use client\";\n\nimport React, { useState, useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\nimport { useAuth, Role, UserAccount } from \"@/context/AuthContext\";\nimport { HeaderKasir } from \"@/components/HeaderKasir\";\nimport { cloudGetTeamMembers } from \"@/app/actions/cloud-sync\";\nimport { \n  UsersRound, \n  Mail, \n  Plus, \n  ShieldAlert, \n  UserCheck, \n  UserX, \n  Trash2, \n  ShieldCheck, \n  Crown, \n  Key, \n  Users, \n  Phone, \n  AlertCircle, \n  CheckCircle2, \n  X, \n  ArrowLeft,\n...",
       "dependsOn": [
         "react",
-        "lucide-react",
-        "@/components/HeaderKasir",
+        "next/navigation",
         "@/context/AuthContext",
-        "@/context/WorkspaceSettingsContext",
-        "@/lib/dual-persistence",
+        "@/components/HeaderKasir",
+        "@/app/actions/cloud-sync",
+        "lucide-react",
+        "@/components/ui/dialog",
         "@/components/ui/button",
         "@/components/ui/input",
-        "@/components/ui/atoms",
-        "@/components/ui/dialog"
+        "@/components/ui/atoms"
       ]
     },
     {
@@ -275,14 +309,32 @@
       "label": "HeaderKasir.tsx",
       "nodeType": "file",
       "sourcePath": "src/components/HeaderKasir.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport { \n  UtensilsCrossed, \n  ShoppingBag, \n  Scissors, \n  Wrench, \n  Boxes, \n  Globe, \n  Clock, \n  CloudCheck, \n  RefreshCw, \n  Sparkles,\n  ChevronDown,\n  UserCheck\n} from \"lucide-react\";\nimport { useBusinessMode, BusinessArchetype, ARCHETYPES } from \"@/context/BusinessModeContext\";\nimport { useShift } from \"@/context/ShiftContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { useAuth } from \"@/cont...",
+      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport { useRouter, usePathname } from \"next/navigation\";\nimport { \n  UtensilsCrossed, \n  ShoppingBag, \n  Scissors, \n  Wrench, \n  Boxes, \n  Globe, \n  Clock, \n  RefreshCw, \n  ChevronDown,\n  LogOut,\n  Store\n} from \"lucide-react\";\nimport { useBusinessMode, BusinessArchetype, ARCHETYPES } from \"@/context/BusinessModeContext\";\nimport { useShift } from \"@/context/ShiftContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsCont...",
       "dependsOn": [
         "react",
+        "next/navigation",
         "lucide-react",
         "@/context/BusinessModeContext",
         "@/context/ShiftContext",
         "@/context/WorkspaceSettingsContext",
         "@/context/AuthContext"
+      ]
+    },
+    {
+      "nodeId": "nstok-app-POS::src/components/MobileBottomNav.tsx",
+      "label": "MobileBottomNav.tsx",
+      "nodeType": "file",
+      "sourcePath": "src/components/MobileBottomNav.tsx",
+      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport Link from \"next/link\";\nimport { usePathname, useRouter } from \"next/navigation\";\nimport { \n  ShoppingBag, \n  LayoutDashboard, \n  Package, \n  Users, \n  MoreHorizontal,\n  Settings,\n  UsersRound,\n  Truck,\n  LogOut,\n  Store,\n  X,\n  Clock,\n  RefreshCw\n} from \"lucide-react\";\nimport { useAuth, Role } from \"@/context/AuthContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { useCart } from \"@/context/Ca...",
+      "dependsOn": [
+        "react",
+        "next/link",
+        "next/navigation",
+        "lucide-react",
+        "@/context/AuthContext",
+        "@/context/WorkspaceSettingsContext",
+        "@/context/CartContext",
+        "@/context/ShiftContext"
       ]
     },
     {
@@ -309,7 +361,7 @@
       "label": "ProductGrid.tsx",
       "nodeType": "file",
       "sourcePath": "src/components/ProductGrid.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport { Search, Barcode, Plus, Tag, AlertCircle, Check } from \"lucide-react\";\nimport { Product } from \"@/db/schema\";\nimport { useCart } from \"@/context/CartContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { Input } from \"@/components/ui/input\";\nimport { Badge } from \"@/components/ui/atoms\";\n\nexport function ProductGrid({ \n  products,\n  onAddNewProduct\n}: { \n  products: Product[];\n  onAddNewProduct...",
+      "codeContent": "\"use client\";\n\nimport React, { useState } from \"react\";\nimport { Search, Barcode, Plus, Tag, AlertCircle, Check, Trash2 } from \"lucide-react\";\nimport { Product } from \"@/db/schema\";\nimport { useCart } from \"@/context/CartContext\";\nimport { useWorkspaceSettings } from \"@/context/WorkspaceSettingsContext\";\nimport { Input } from \"@/components/ui/input\";\nimport { Badge } from \"@/components/ui/atoms\";\n\nexport function ProductGrid({ \n  products,\n  onAddNewProduct,\n  onDeleteProduct\n}: { \n  products: P...",
       "dependsOn": [
         "react",
         "lucide-react",
@@ -411,7 +463,7 @@
       "label": "dialog.tsx",
       "nodeType": "file",
       "sourcePath": "src/components/ui/dialog.tsx",
-      "codeContent": "\"use client\";\n\nimport * as React from \"react\";\nimport { X } from \"lucide-react\";\nimport { clsx } from \"clsx\";\nimport { twMerge } from \"tailwind-merge\";\n\nexport function Dialog({\n  open,\n  onOpenChange,\n  children,\n}: {\n  open: boolean;\n  onOpenChange: (open: boolean) => void;\n  children: React.ReactNode;\n}) {\n  if (!open) return null;\n\n  return (\n    <div className=\"fixed inset-0 z-50 flex items-center justify-center p-4\">\n      {/* Backdrop */}\n      <div\n        className=\"fixed inset-0 bg-bla...",
+      "codeContent": "\"use client\";\n\nimport * as React from \"react\";\nimport { X } from \"lucide-react\";\nimport { clsx } from \"clsx\";\nimport { twMerge } from \"tailwind-merge\";\n\nexport function Dialog({\n  open,\n  onOpenChange,\n  children,\n}: {\n  open: boolean;\n  onOpenChange: (open: boolean) => void;\n  children: React.ReactNode;\n}) {\n  if (!open) return null;\n\n  return (\n    <div className=\"fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto\">\n      {/* Backdrop */}\n      <div\n        classNam...",
       "dependsOn": [
         "react",
         "lucide-react",
@@ -436,10 +488,13 @@
       "label": "AuthContext.tsx",
       "nodeType": "file",
       "sourcePath": "src/context/AuthContext.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\n\nexport type Role = \"OWNER\" | \"MANAGER\" | \"SUPERVISOR\" | \"KASIR\" | \"STAFF_DAPUR\" | \"TEKNISI\";\n\nexport interface UserSession {\n  id: string;\n  name: string;\n  email: string;\n  role: Role;\n  organizationId: string;\n  organizationName: string;\n  token?: string;\n}\n\ninterface AuthContextType {\n  user: UserSession | null;\n  isA...",
+      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { getStarterProducts, getStarterCustomers } from \"@/lib/starter-templates\";\nimport { BusinessArchetype } from \"./BusinessModeContext\";\nimport { \n  cloudRegister, \n  cloudLogin, \n  cloudUpdateWorkspace, \n  cloudCreateStaff,\n  cloudSaveProduct,\n  cloudSaveCustomer,\n  cloudDeleteTeamMember,\n  cloudToggleTeamMember\n} f...",
       "dependsOn": [
         "react",
-        "@/lib/dual-persistence"
+        "@/lib/dual-persistence",
+        "@/lib/starter-templates",
+        "./BusinessModeContext",
+        "@/app/actions/cloud-sync"
       ]
     },
     {
@@ -447,10 +502,11 @@
       "label": "BusinessModeContext.tsx",
       "nodeType": "file",
       "sourcePath": "src/context/BusinessModeContext.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\n\nexport type BusinessArchetype = \"FNB\" | \"RETAIL\" | \"SALON\" | \"SERVICES\" | \"WHOLESALE\" | \"HYBRID\";\n\nexport interface BusinessModeInfo {\n  type: BusinessArchetype;\n  name: string;\n  badge: string;\n  icon: string;\n  features: string[];\n}\n\nexport const ARCHETYPES: Record<BusinessArchetype, BusinessModeInfo> = {\n  FNB: {\n    ...",
+      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { useAuth } from \"./AuthContext\";\n\nexport type BusinessArchetype = \"FNB\" | \"RETAIL\" | \"SALON\" | \"SERVICES\" | \"WHOLESALE\" | \"HYBRID\";\n\nexport interface BusinessModeInfo {\n  type: BusinessArchetype;\n  name: string;\n  badge: string;\n  icon: string;\n  features: string[];\n}\n\nexport const ARCHETYPES: Record<BusinessArche...",
       "dependsOn": [
         "react",
-        "@/lib/dual-persistence"
+        "@/lib/dual-persistence",
+        "./AuthContext"
       ]
     },
     {
@@ -458,11 +514,12 @@
       "label": "CartContext.tsx",
       "nodeType": "file",
       "sourcePath": "src/context/CartContext.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { Product, Customer } from \"@/db/schema\";\nimport { useWorkspaceSettings } from \"./WorkspaceSettingsContext\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\n\nexport interface CartItem {\n  product: Product;\n  quantity: number;\n  discountPercent?: number;\n  itemNotes?: string;\n  appliedPrice: number; // Effective price (wholesale or normal)\n}\n\nexport interface Hol...",
+      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { Product, Customer } from \"@/db/schema\";\nimport { useWorkspaceSettings } from \"./WorkspaceSettingsContext\";\nimport { useAuth } from \"./AuthContext\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\n\nexport interface CartItem {\n  product: Product;\n  quantity: number;\n  discountPercent?: number;\n  itemNotes?: string;\n  appliedPrice: number; // Effective price (who...",
       "dependsOn": [
         "react",
         "@/db/schema",
         "./WorkspaceSettingsContext",
+        "./AuthContext",
         "@/lib/dual-persistence"
       ]
     },
@@ -471,10 +528,11 @@
       "label": "ShiftContext.tsx",
       "nodeType": "file",
       "sourcePath": "src/context/ShiftContext.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\n\nexport interface ShiftData {\n  id: string;\n  cashierName: string;\n  startingCash: number;\n  expectedCash: number;\n  actualCash?: number;\n  discrepancy?: number;\n  totalSales: number;\n  totalTransactions: number;\n  status: \"OPEN\" | \"CLOSED\";\n  openedAt: string;\n  closedAt?: string;\n  notes?: string;\n}\n\ninterface ShiftCont...",
+      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { useAuth } from \"./AuthContext\";\n\nexport interface ShiftData {\n  id: string;\n  cashierName: string;\n  startingCash: number;\n  expectedCash: number;\n  actualCash?: number;\n  discrepancy?: number;\n  totalSales: number;\n  totalTransactions: number;\n  status: \"OPEN\" | \"CLOSED\";\n  openedAt: string;\n  closedAt?: string;...",
       "dependsOn": [
         "react",
-        "@/lib/dual-persistence"
+        "@/lib/dual-persistence",
+        "./AuthContext"
       ]
     },
     {
@@ -482,10 +540,11 @@
       "label": "WorkspaceSettingsContext.tsx",
       "nodeType": "file",
       "sourcePath": "src/context/WorkspaceSettingsContext.tsx",
-      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\n\nexport interface WorkspaceSettingsData {\n  businessName: string;\n  businessAddress: string;\n  phone: string;\n  email: string;\n  npwp: string;\n  currency: string;\n  taxPercentage: number;\n  taxEnabled: boolean;\n  roundingRule: 'NONE' | 'UP_100' | 'NEAREST_100';\n  receiptPaperSize: '58mm' | '80mm';\n  receiptHeader: string;...",
+      "codeContent": "\"use client\";\n\nimport React, { createContext, useContext, useState, useEffect } from \"react\";\nimport { loadFromLocalStorage, saveToLocalStorage } from \"@/lib/dual-persistence\";\nimport { useAuth } from \"./AuthContext\";\n\nexport interface WorkspaceSettingsData {\n  businessName: string;\n  businessAddress: string;\n  phone: string;\n  email: string;\n  npwp: string;\n  currency: string;\n  taxPercentage: number;\n  taxEnabled: boolean;\n  roundingRule: 'NONE' | 'UP_100' | 'NEAREST_100';\n  receiptPaperSize: ...",
       "dependsOn": [
         "react",
-        "@/lib/dual-persistence"
+        "@/lib/dual-persistence",
+        "./AuthContext"
       ]
     },
     {
@@ -493,7 +552,19 @@
       "label": "index.ts",
       "nodeType": "file",
       "sourcePath": "src/db/index.ts",
-      "codeContent": "import * as schema from './schema';\n\nexport * from './schema';\n\n// Initial Mock Dataset for Offline-First / Browser LocalStorage Seeding\nexport const INITIAL_PRODUCTS: Array<schema.Product> = [\n  {\n    id: 'prod-1',\n    organizationId: 'org-demo-1',\n    outletId: 'outlet-1',\n    name: 'Kopi Susu Gula Aren',\n    sku: 'BEV-001',\n    barcode: '899123456001',\n    category: 'Minuman',\n    costPrice: '8000',\n    sellingPrice: '18000',\n    wholesalePrice: '15000',\n    minWholesaleQty: 10,\n    stock: 85...",
+      "codeContent": "import { drizzle } from 'drizzle-orm/postgres-js';\nimport postgres from 'postgres';\nimport * as schema from './schema';\nexport {\n  organizations,\n  users,\n  teamMembers,\n  teamInvitations,\n  workspaceSettings,\n  outlets,\n  products,\n  customers,\n  suppliers,\n  cashierShifts,\n  transactions,\n} from './schema';\nexport type {\n  Organization,\n  User,\n  TeamMember,\n  TeamInvitation,\n  WorkspaceSettings,\n  Product,\n  Customer,\n  Supplier,\n  CashierShift,\n  Transaction,\n} from './schema';\n\nconst connec...",
+      "dependsOn": [
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "./schema"
+      ]
+    },
+    {
+      "nodeId": "nstok-app-POS::src/db/initial-data.ts",
+      "label": "initial-data.ts",
+      "nodeType": "file",
+      "sourcePath": "src/db/initial-data.ts",
+      "codeContent": "import type { Product, Customer, Supplier } from './schema';\n\nexport const INITIAL_PRODUCTS: Array<Product> = [\n  {\n    id: 'prod-1',\n    organizationId: 'org-demo-1',\n    outletId: 'outlet-1',\n    name: 'Kopi Susu Gula Aren',\n    sku: 'BEV-001',\n    barcode: '899123456001',\n    category: 'Minuman',\n    costPrice: '8000',\n    sellingPrice: '18000',\n    wholesalePrice: '15000',\n    minWholesaleQty: 10,\n    stock: 85,\n    unit: 'cup',\n    minStockAlert: 10,\n    imageUrl: '',\n    createdAt: new Dat...",
       "dependsOn": [
         "./schema"
       ]
@@ -523,6 +594,27 @@
       "sourcePath": "src/lib/rag/index.ts",
       "codeContent": "export interface KnowledgeDocument {\n  id: string;\n  title: string;\n  category: \"PRD\" | \"OKF\" | \"ARCHITECTURE\" | \"GUIDE\" | \"FEATURE\";\n  content: string;\n}\n\nexport const KNOWLEDGE_BASE: KnowledgeDocument[] = [\n  {\n    id: \"kb-1\",\n    title: \"PRD Master v3.0.0\",\n    category: \"PRD\",\n    content: \"nstok-app-POS adalah aplikasi kasir multi-bisnis dengan modular engine, auto-provisioning workspace, sistem undangan tim bebas duplikasi, offboarding pegawai dengan instant session kickout, dan 9-Tab Work...",
       "dependsOn": []
+    },
+    {
+      "nodeId": "nstok-app-POS::src/lib/starter-templates.ts",
+      "label": "starter-templates.ts",
+      "nodeType": "file",
+      "sourcePath": "src/lib/starter-templates.ts",
+      "codeContent": "import { Product, Customer } from \"@/db/schema\";\nimport { BusinessArchetype } from \"@/context/BusinessModeContext\";\n\nexport function getStarterProducts(businessType: BusinessArchetype, organizationId: string): Product[] {\n  const now = new Date();\n  \n  switch (businessType) {\n    case \"FNB\":\n      return [\n        {\n          id: `prod-fnb-1-${Date.now()}`,\n          organizationId,\n          outletId: \"outlet-1\",\n          name: \"Kopi Susu Gula Aren\",\n          sku: \"FNB-001\",\n          barcode...",
+      "dependsOn": [
+        "@/db/schema",
+        "@/context/BusinessModeContext"
+      ]
+    },
+    {
+      "nodeId": "nstok-app-POS::src/middleware.ts",
+      "label": "middleware.ts",
+      "nodeType": "file",
+      "sourcePath": "src/middleware.ts",
+      "codeContent": "import { NextResponse } from 'next/server';\nimport type { NextRequest } from 'next/server';\n\nexport function middleware(request: NextRequest) {\n  const { pathname } = request.nextUrl;\n  const sessionCookie = request.cookies.get('nstok_session')?.value;\n\n  // Jika user sudah login (memiliki cookie sesi aktif) dan mencoba membuka halaman /login\n  if (sessionCookie && pathname === '/login') {\n    try {\n      const session = JSON.parse(decodeURIComponent(sessionCookie));\n      if (session && session...",
+      "dependsOn": [
+        "next/server"
+      ]
     },
     {
       "nodeId": "nstok-app-POS::tailwind.config.ts",
@@ -561,6 +653,13 @@
       "nodeType": "document",
       "sourcePath": "okf/routes.md",
       "content": "---\ntitle: nstok-app-POS Routes and RBAC\ntype: routes_matrix\nversion: 3.0.0\ntags: [routes, rbac, security, access_control]\n---\n\n# 🛣️ Matriks Rute & Hak Akses\n\n| Rute Halaman | Deskripsi | Akses Diizinkan |\n| :--- | :--- | :--- |\n| `/login` | Autentikasi staf & Auto-Provisioning pendaftaran Owner baru | Publik |\n| `/accept-invite` | Penerimaan tautan undangan staf baru | Publik / Terundang |\n| `/business-select` | Pemilihan arketipe vertikal bisnis | Owner |\n| `/pos` | Mesin kasir touchscreen, katalog, cart, checkout | Semua Role |\n| `/dashboard` | Dashboard metrik omzet live & analitik | Owner, Manager |\n| `/inventory` | Katalog master produk, HPP, sisa stok | Owner, Manager, Supervisor |\n| `/customers` | Database pelanggan CRM & poin loyalitas | Owner, Manager, Supervisor, Kasir |\n| `/suppliers` | Manajemen data pemasok & riwayat pasokan | Owner, Manager |\n| `/team` | Manajemen tim, undangan, role, dan offboarding | Owner, Manager |\n| `/settings` | Pusat kendali pengaturan workspace ..."
+    },
+    {
+      "nodeId": "nstok-app-POS::docs::PRD.md",
+      "label": "PRD.md",
+      "nodeType": "document",
+      "sourcePath": "PRD.md",
+      "content": "# 📄 PRODUCT REQUIREMENT DOCUMENT (PRD)\n## **nstok-APP-pos (v3.0.0)**\n### *Next-Gen Multi-Archetype Point of Sale & Cloud Retail Operating System*\n\n---\n\n## 📌 1. Metadata Dokumen\n\n| Atribut | Keterangan |\n| :--- | :--- |\n| **Nama Dokumen** | Product Requirement Document (PRD) — `nstok-app-pos` |\n| **Kode Repositori** | `nstok-APP-pos` |\n| **Versi Produk** | `3.0.0` (Generasi ke-3 Host Application) |\n| **Status Dokumen** | **Disetujui / Baseline Production** |\n| **Klasifikasi** | POS Shell Host Container, Multi-Tenant Architecture |\n| **Tech Stack Utama** | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Drizzle ORM, PostgreSQL (Supabase), Lucide Icons |\n| **Arsitektur Data** | Dual-Persistence (Offline-First Local Storage + Cloud Sync PostgreSQL) |\n| **Target Pengguna** | Pemilik Usaha (Owner), Manajer Toko, Supervisor Kasir, Kasir Operasional, Staff Dapur, Teknisi Bengkel |\n\n---\n\n## 🎯 2. Ringkasan Eksekutif & Latar Belakang\n\n### 2.1. Latar Belakang Masalah\nBanyak aplikas..."
     }
   ]
 }
