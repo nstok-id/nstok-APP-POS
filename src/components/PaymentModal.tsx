@@ -30,7 +30,7 @@ export function PaymentModal({
 }) {
   const { grandTotal, subtotal, taxAmount, discountAmount, discountPercent, items, selectedCustomer, tableNumber, orderNotes, clearCart } = useCart();
   const { formatCurrency } = useWorkspaceSettings();
-  const { recordSale } = useShift();
+  const { recordSale, currentShift } = useShift();
   const { user } = useAuth();
 
   const [method, setMethod] = useState<"CASH" | "QRIS" | "CARD" | "TRANSFER">("CASH");
@@ -60,7 +60,7 @@ export function PaymentModal({
     const newTransaction: Transaction = {
       id: `trx-${Date.now()}`,
       organizationId: user?.organizationId || "org-demo-1",
-      shiftId: "shift-active",
+      shiftId: currentShift?.id || null,
       invoiceNumber: invoiceNum,
       cashierId: user?.id || "user-1",
       cashierName: user?.name || "Kasir",

@@ -271,20 +271,48 @@ export async function cloudCreateTransaction(trx: Transaction) {
   if (!db) return null;
   try {
     await ensureTablesExist();
-    await db.insert(transactions).values(trx);
 
-    // Deduct stock in DB
-    const soldItems = JSON.parse(trx.itemsJson || "[]");
-    for (const item of soldItems) {
-      if (item.product?.id) {
-        const prodRecords = await db.select().from(products).where(eq(products.id, item.product.id)).limit(1);
-        if (prodRecords.length > 0) {
-          const currentStock = prodRecords[0].stock;
-          await db
-            .update(products)
-            .set({ stock: Math.max(0, currentStock - item.quantity), updatedAt: new Date() })
-            .where(eq(products.id, item.product.id));
+    const existing = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, trx.id))
+      .limit(1);
+
+    if (existing.length === 0) {
+      await db.insert(transactions).values({
+        ...trx,
+        createdAt: trx.createdAt ? new Date(trx.createdAt) : new Date(),
+      });
+
+      // Deduct stock in DB
+      try {
+        const soldItems = JSON.parse(trx.itemsJson || "[]");
+        for (const item of soldItems) {
+          if (item.product?.id) {
+            const prodRecords = await db.select().from(products).where(eq(products.id, item.product.id)).limit(1);
+            if (prodRecords.length > 0) {
+              const currentStock = prodRecords[0].stock;
+              await db
+                .update(products)
+                .set({ stock: Math.max(0, currentStock - item.quantity), updatedAt: new Date() })
+                .where(eq(products.id, item.product.id));
+            }
+          }
         }
+      } catch (err) {
+        console.warn("Stock deduction warning:", err);
+      }
+    } else {
+      // If status changed (e.g. VOIDED), update it
+      if (existing[0].status !== trx.status) {
+        await db
+          .update(transactions)
+          .set({
+            status: trx.status,
+            voidReason: trx.voidReason,
+            voidApprovedBy: trx.voidApprovedBy,
+          })
+          .where(eq(transactions.id, trx.id));
       }
     }
 

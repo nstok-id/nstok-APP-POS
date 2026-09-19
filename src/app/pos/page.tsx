@@ -99,9 +99,28 @@ export default function PosPage() {
       }).catch(() => {});
 
       cloudGetTransactions(orgId).then((cloudTrx) => {
-        if (cloudTrx) {
-          setTransactions(cloudTrx);
-          saveToLocalStorage(TRANSACTIONS_STORAGE_KEY, cloudTrx);
+        if (cloudTrx !== null) {
+          const currentLocal = loadFromLocalStorage<Transaction[]>(TRANSACTIONS_STORAGE_KEY, []);
+          const mergedMap = new Map<string, Transaction>();
+          // 1. Put current local transactions first
+          currentLocal.forEach((t) => mergedMap.set(t.id || t.invoiceNumber, t));
+          // 2. Overlay cloud transactions
+          cloudTrx.forEach((t) => mergedMap.set(t.id || t.invoiceNumber, t));
+
+          const merged = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
+          setTransactions(merged);
+          saveToLocalStorage(TRANSACTIONS_STORAGE_KEY, merged);
+
+          // 3. Auto-sync any local transactions not yet in cloud DB
+          const cloudIds = new Set(cloudTrx.map((c) => c.id || c.invoiceNumber));
+          for (const localItem of currentLocal) {
+            if (!cloudIds.has(localItem.id || localItem.invoiceNumber)) {
+              cloudCreateTransaction(localItem).catch(() => {});
+            }
+          }
         }
       }).catch(() => {});
     }

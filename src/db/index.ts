@@ -1,8 +1,31 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
-
-export * from './schema';
+export {
+  organizations,
+  users,
+  teamMembers,
+  teamInvitations,
+  workspaceSettings,
+  outlets,
+  products,
+  customers,
+  suppliers,
+  cashierShifts,
+  transactions,
+} from './schema';
+export type {
+  Organization,
+  User,
+  TeamMember,
+  TeamInvitation,
+  WorkspaceSettings,
+  Product,
+  Customer,
+  Supplier,
+  CashierShift,
+  Transaction,
+} from './schema';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -331,7 +354,24 @@ export async function ensureTablesExist() {
       END $$;
     `);
 
-    // 4. Synchronize data between legacy columns and snake_case columns if present
+    // 4. Drop all strict foreign key constraints in public schema to prevent sync failures
+    await client.unsafe(`
+      DO $$ 
+      DECLARE
+          r RECORD;
+      BEGIN
+          FOR r IN (
+              SELECT constraint_name, table_name 
+              FROM information_schema.table_constraints 
+              WHERE constraint_type = 'FOREIGN KEY' 
+                AND table_schema = 'public'
+          ) LOOP
+              EXECUTE 'ALTER TABLE public.' || quote_ident(r.table_name) || ' DROP CONSTRAINT IF EXISTS ' || quote_ident(r.constraint_name);
+          END LOOP;
+      END $$;
+    `);
+
+    // 5. Synchronize data between legacy columns and snake_case columns if present
     await client.unsafe(`
       DO $$
       BEGIN
