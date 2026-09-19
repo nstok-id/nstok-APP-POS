@@ -315,6 +315,21 @@ export default function SettingsPage() {
                       Wajibkan Otorisasi Supervisor saat Pembatalan (Void) Nota Transaksi
                     </label>
                   </div>
+                  <div>
+                    <label className="text-xs font-semibold">Masa Aktif Sesi Login Akun (Auto-Lock / Timeout)</label>
+                    <select
+                      value={formData.sessionTimeoutMinutes}
+                      onChange={(e) => setFormData({ ...formData, sessionTimeoutMinutes: parseInt(e.target.value) || 525600 })}
+                      className="mt-1 w-full max-w-xs h-9 rounded-lg border border-input bg-background px-3 py-1 text-xs"
+                    >
+                      <option value={525600}>1 Tahun (365 Hari / 525.600 Menit) — Bawaan POS</option>
+                      <option value={43200}>30 Hari (43.200 Menit)</option>
+                      <option value={10080}>7 Hari (10.080 Menit)</option>
+                      <option value={1440}>24 Jam (1.440 Menit)</option>
+                      <option value={60}>1 Jam (60 Menit)</option>
+                    </select>
+                    <p className="text-[11px] text-muted-foreground mt-1">Mengatur masa aktif sesi login staf pada perangkat kasir sebelum sistem meminta login ulang.</p>
+                  </div>
                 </div>
               )}
 

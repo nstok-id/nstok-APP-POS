@@ -70,7 +70,7 @@ export const workspaceSettings = pgTable('workspace_settings', {
   lowStockThresholdDefault: integer('low_stock_threshold_default').default(5).notNull(),
   approvalDiscountThresholdPercent: integer('approval_discount_threshold_percent').default(20).notNull(),
   approvalRequireVoid: boolean('approval_require_void').default(true).notNull(),
-  sessionTimeoutMinutes: integer('session_timeout_minutes').default(60).notNull(),
+  sessionTimeoutMinutes: integer('session_timeout_minutes').default(525600).notNull(), // 1 Tahun (365 Hari)
   activeModules: text('active_modules').default('[]').notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

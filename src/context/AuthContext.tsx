@@ -42,6 +42,7 @@ export interface UserSession {
   businessType: string;
   hasCompletedOnboarding: boolean;
   token?: string;
+  expiresAt?: string;
 }
 
 interface AuthContextType {
@@ -64,6 +65,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const AUTH_STORAGE_KEY = "nstok_auth_session_v3";
 const USERS_REGISTRY_KEY = "nstok_users_registry_v3";
+export const ONE_YEAR_SESSION_MS = 365 * 24 * 60 * 60 * 1000; // 525.600 menit = 1 Tahun (365 Hari)
 
 const INITIAL_DEMO_USERS: UserAccount[] = [
   {
@@ -119,12 +121,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveToLocalStorage(USERS_REGISTRY_KEY, registry);
   };
 
-  // Initialize Auth & Registry
+  // Initialize Auth & Registry (1-Year Session Persistence Check)
   useEffect(() => {
     try {
       const session = loadFromLocalStorage<UserSession | null>(AUTH_STORAGE_KEY, null);
       if (session) {
-        setUser(session);
+        if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+          console.warn("Auth session has expired after 1 year.");
+          saveToLocalStorage(AUTH_STORAGE_KEY, null);
+          setUser(null);
+        } else {
+          setUser(session);
+        }
       }
     } catch (e) {
       console.error("Failed to load auth session", e);
@@ -154,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           organizationName: cloudRes.user.organizationName,
           businessType: cloudRes.user.businessType,
           hasCompletedOnboarding: false,
+          expiresAt: new Date(Date.now() + ONE_YEAR_SESSION_MS).toISOString(),
         };
 
         setUser(session);
@@ -216,6 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       organizationName: newAccount.organizationName,
       businessType: newAccount.businessType,
       hasCompletedOnboarding: false,
+      expiresAt: new Date(Date.now() + ONE_YEAR_SESSION_MS).toISOString(),
     };
 
     setUser(session);
@@ -244,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             organizationName: cloudRes.user.organizationName,
             businessType: cloudRes.user.businessType,
             hasCompletedOnboarding: cloudRes.user.hasCompletedOnboarding,
+            expiresAt: new Date(Date.now() + ONE_YEAR_SESSION_MS).toISOString(),
           };
 
           setUser(session);
@@ -299,6 +310,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       organizationName: found.organizationName,
       businessType: found.businessType,
       hasCompletedOnboarding: found.hasCompletedOnboarding,
+      expiresAt: new Date(Date.now() + ONE_YEAR_SESSION_MS).toISOString(),
     };
 
     setUser(session);

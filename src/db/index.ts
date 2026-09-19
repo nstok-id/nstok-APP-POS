@@ -101,7 +101,7 @@ export async function ensureTablesExist() {
         low_stock_threshold_default INTEGER NOT NULL DEFAULT 5,
         approval_discount_threshold_percent INTEGER NOT NULL DEFAULT 20,
         approval_require_void BOOLEAN NOT NULL DEFAULT true,
-        session_timeout_minutes INTEGER NOT NULL DEFAULT 60,
+        session_timeout_minutes INTEGER NOT NULL DEFAULT 525600,
         active_modules TEXT NOT NULL DEFAULT '[]',
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
       );
@@ -242,7 +242,7 @@ export async function ensureTablesExist() {
       ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS low_stock_threshold_default INTEGER NOT NULL DEFAULT 5;
       ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS approval_discount_threshold_percent INTEGER NOT NULL DEFAULT 20;
       ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS approval_require_void BOOLEAN NOT NULL DEFAULT true;
-      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS session_timeout_minutes INTEGER NOT NULL DEFAULT 60;
+      ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS session_timeout_minutes INTEGER NOT NULL DEFAULT 525600;
       ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS active_modules TEXT NOT NULL DEFAULT '[]';
       ALTER TABLE workspace_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 

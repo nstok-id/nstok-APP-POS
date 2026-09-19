@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS: WorkspaceSettingsData = {
   lowStockThresholdDefault: 5,
   approvalDiscountThresholdPercent: 20,
   approvalRequireVoid: true,
-  sessionTimeoutMinutes: 60,
+  sessionTimeoutMinutes: 525600, // 525.600 menit = 1 Tahun (365 Hari)
   activeModules: ["fnb_kds", "tables", "loyalty"],
 };
 
