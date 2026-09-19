@@ -109,6 +109,16 @@ const INITIAL_DEMO_USERS: UserAccount[] = [
   },
 ];
 
+export const syncSessionCookie = (session: UserSession | null) => {
+  if (typeof document === "undefined") return;
+  if (session) {
+    const expires = new Date(Date.now() + ONE_YEAR_SESSION_MS).toUTCString();
+    document.cookie = `nstok_session=${encodeURIComponent(JSON.stringify(session))}; path=/; expires=${expires}; SameSite=Lax`;
+  } else {
+    document.cookie = `nstok_session=; path=/; max-age=0; SameSite=Lax`;
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -129,10 +139,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
           console.warn("Auth session has expired after 1 year.");
           saveToLocalStorage(AUTH_STORAGE_KEY, null);
+          syncSessionCookie(null);
           setUser(null);
         } else {
           setUser(session);
+          syncSessionCookie(session);
         }
+      } else {
+        syncSessionCookie(null);
       }
     } catch (e) {
       console.error("Failed to load auth session", e);
@@ -167,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser(session);
         saveToLocalStorage(AUTH_STORAGE_KEY, session);
+        syncSessionCookie(session);
 
         // Also add to local registry
         const registry = getUsersRegistry();
@@ -230,6 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(session);
     saveToLocalStorage(AUTH_STORAGE_KEY, session);
+    syncSessionCookie(session);
 
     return { success: true };
   };
@@ -259,6 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(session);
           saveToLocalStorage(AUTH_STORAGE_KEY, session);
+          syncSessionCookie(session);
 
           // Update local registry with cloud user data
           const registry = getUsersRegistry();
@@ -315,6 +332,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(session);
     saveToLocalStorage(AUTH_STORAGE_KEY, session);
+    syncSessionCookie(session);
 
     return {
       success: true,
@@ -360,6 +378,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(updatedSession);
     saveToLocalStorage(AUTH_STORAGE_KEY, updatedSession);
+    syncSessionCookie(updatedSession);
 
     // Auto-seed starter products and customers for this workspace if not yet seeded
     const productsKey = `nstok_${user.organizationId}_products`;
@@ -394,6 +413,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    syncSessionCookie(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       window.location.href = "/login";

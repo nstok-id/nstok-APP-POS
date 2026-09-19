@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, login, register } = useAuth();
 
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
@@ -20,6 +20,29 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Auto-redirect jika user sudah login (tidak boleh membuka /login sebelum logout)
+  React.useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      if (!user.hasCompletedOnboarding) {
+        router.replace("/business-select");
+      } else {
+        router.replace("/pos");
+      }
+    }
+  }, [user, isAuthenticated, authLoading, router]);
+
+  // Tampilkan loading screen jika sesi aktif sedang dialihkan
+  if (authLoading || (isAuthenticated && user)) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 text-slate-400">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold">Memeriksa status sesi akun...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
