@@ -116,10 +116,10 @@ export default function LoginPage() {
             <Store className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">
-            nstok-APP-pos
+            nstok
           </h1>
           <p className="text-xs text-zinc-400">
-            Sistem Kasir Multi-Tenant & Multi-Bisnis Terpadu
+
           </p>
         </div>
 
@@ -132,11 +132,10 @@ export default function LoginPage() {
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              !isRegister
-                ? "bg-zinc-800 text-white shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${!isRegister
+              ? "bg-zinc-800 text-white shadow-sm"
+              : "text-zinc-400 hover:text-white"
+              }`}
           >
             Masuk Sesi Akun
           </button>
@@ -147,11 +146,10 @@ export default function LoginPage() {
               setErrorMessage(null);
               setSuccessMessage(null);
             }}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              isRegister
-                ? "bg-zinc-800 text-white shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${isRegister
+              ? "bg-zinc-800 text-white shadow-sm"
+              : "text-zinc-400 hover:text-white"
+              }`}
           >
             Daftar Akun Baru (Owner)
           </button>
