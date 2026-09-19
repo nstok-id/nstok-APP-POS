@@ -288,8 +288,35 @@ export async function ensureTablesExist() {
       ALTER TABLE transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     `);
 
+    // 3. Relax NOT NULL on any legacy camelCase columns from older schemas (e.g. "userId", "organizationId")
+    await client.unsafe(`
+      DO $$ 
+      DECLARE
+          r RECORD;
+      BEGIN
+          FOR r IN (
+              SELECT table_name, column_name 
+              FROM information_schema.columns 
+              WHERE table_schema = 'public' 
+                AND is_nullable = 'NO'
+                AND column_name IN (
+                  'userId', 'organizationId', 'orgId', 'businessType', 
+                  'createdAt', 'updatedAt', 'avatarUrl', 'logoUrl', 
+                  'isActive', 'joinedAt', 'outletId', 'businessName',
+                  'costPrice', 'sellingPrice', 'wholesalePrice', 'minWholesaleQty',
+                  'minStockAlert', 'imageUrl', 'loyaltyPoints', 'totalSpent',
+                  'shiftId', 'invoiceNumber', 'cashierId', 'cashierName',
+                  'customerId', 'customerName', 'paymentMethod', 'paidAmount',
+                  'changeAmount', 'itemsJson', 'tableNumber', 'orderNotes'
+                )
+          ) LOOP
+              EXECUTE 'ALTER TABLE public.' || quote_ident(r.table_name) || ' ALTER COLUMN ' || quote_ident(r.column_name) || ' DROP NOT NULL';
+          END LOOP;
+      END $$;
+    `);
+
     tablesInitialized = true;
-    console.log("Supabase DDL and column migration applied successfully.");
+    console.log("Supabase DDL, column migration, and legacy constraint relaxation applied successfully.");
   } catch (err) {
     console.error("ensureTablesExist error:", err);
   }
