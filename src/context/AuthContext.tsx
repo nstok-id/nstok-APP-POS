@@ -4,6 +4,16 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
 import { getStarterProducts, getStarterCustomers } from "@/lib/starter-templates";
 import { BusinessArchetype } from "./BusinessModeContext";
+import { 
+  cloudRegister, 
+  cloudLogin, 
+  cloudUpdateWorkspace, 
+  cloudCreateStaff,
+  cloudSaveProduct,
+  cloudSaveCustomer,
+  cloudDeleteTeamMember,
+  cloudToggleTeamMember
+} from "@/app/actions/cloud-sync";
 
 export type Role = "OWNER" | "MANAGER" | "SUPERVISOR" | "KASIR" | "STAFF_DAPUR" | "TEKNISI";
 
@@ -101,29 +111,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize Auth & Registry
-  useEffect(() => {
-    // 1. Ensure initial demo registry exists
-    const existingRegistry = loadFromLocalStorage<UserAccount[]>(USERS_REGISTRY_KEY, []);
-    if (existingRegistry.length === 0) {
-      saveToLocalStorage(USERS_REGISTRY_KEY, INITIAL_DEMO_USERS);
-    }
-
-    // 2. Load active session
-    const saved = loadFromLocalStorage<UserSession | null>(AUTH_STORAGE_KEY, null);
-    if (saved) {
-      setUser(saved);
-    }
-    setIsLoading(false);
-  }, []);
-
   const getUsersRegistry = (): UserAccount[] => {
     return loadFromLocalStorage<UserAccount[]>(USERS_REGISTRY_KEY, INITIAL_DEMO_USERS);
   };
 
-  const saveUsersRegistry = (users: UserAccount[]) => {
-    saveToLocalStorage(USERS_REGISTRY_KEY, users);
+  const saveUsersRegistry = (registry: UserAccount[]) => {
+    saveToLocalStorage(USERS_REGISTRY_KEY, registry);
   };
+
+  // Initialize Auth & Registry
+  useEffect(() => {
+    try {
+      const session = loadFromLocalStorage<UserSession | null>(AUTH_STORAGE_KEY, null);
+      if (session) {
+        setUser(session);
+      }
+    } catch (e) {
+      console.error("Failed to load auth session", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const register = async (
     name: string,
@@ -132,6 +140,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: Role = "OWNER"
   ): Promise<{ success: boolean; error?: string }> => {
     const normalizedEmail = email.trim().toLowerCase();
+
+    // 1. Try Cloud DB registration first
+    try {
+      const cloudRes = await cloudRegister(name.trim(), normalizedEmail, password, role);
+      if (cloudRes && cloudRes.success && cloudRes.user) {
+        const session: UserSession = {
+          id: cloudRes.user.id,
+          name: cloudRes.user.name,
+          email: cloudRes.user.email,
+          role: cloudRes.user.role as Role,
+          organizationId: cloudRes.user.organizationId,
+          organizationName: cloudRes.user.organizationName,
+          businessType: cloudRes.user.businessType,
+          hasCompletedOnboarding: false,
+        };
+
+        setUser(session);
+        saveToLocalStorage(AUTH_STORAGE_KEY, session);
+
+        // Also add to local registry
+        const registry = getUsersRegistry();
+        const newAccount: UserAccount = {
+          ...session,
+          password,
+          createdAt: new Date().toISOString(),
+          isActive: true,
+        };
+        saveUsersRegistry([newAccount, ...registry.filter((u) => u.email !== normalizedEmail)]);
+
+        return { success: true };
+      } else if (cloudRes && !cloudRes.success) {
+        return { success: false, error: cloudRes.error };
+      }
+    } catch (cloudErr) {
+      console.warn("Cloud DB registration failed, falling back to local storage:", cloudErr);
+    }
+
+    // 2. Local Storage Fallback
     const registry = getUsersRegistry();
 
     // Check if email already registered
@@ -183,8 +229,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password?: string
   ): Promise<{ success: boolean; error?: string; needsOnboarding?: boolean }> => {
     const normalizedEmail = email.trim().toLowerCase();
-    const registry = getUsersRegistry();
 
+    // 1. Try Cloud DB Login first
+    try {
+      if (password) {
+        const cloudRes = await cloudLogin(normalizedEmail, password);
+        if (cloudRes && cloudRes.success && cloudRes.user) {
+          const session: UserSession = {
+            id: cloudRes.user.id,
+            name: cloudRes.user.name,
+            email: cloudRes.user.email,
+            role: cloudRes.user.role as Role,
+            organizationId: cloudRes.user.organizationId,
+            organizationName: cloudRes.user.organizationName,
+            businessType: cloudRes.user.businessType,
+            hasCompletedOnboarding: cloudRes.user.hasCompletedOnboarding,
+          };
+
+          setUser(session);
+          saveToLocalStorage(AUTH_STORAGE_KEY, session);
+
+          // Update local registry with cloud user data
+          const registry = getUsersRegistry();
+          const updatedRegistry = [
+            {
+              ...session,
+              password,
+              createdAt: new Date().toISOString(),
+              isActive: true,
+            },
+            ...registry.filter((u) => u.email !== normalizedEmail),
+          ];
+          saveUsersRegistry(updatedRegistry);
+
+          return {
+            success: true,
+            needsOnboarding: !cloudRes.user.hasCompletedOnboarding,
+          };
+        } else if (cloudRes && !cloudRes.success) {
+          return { success: false, error: cloudRes.error };
+        }
+      }
+    } catch (cloudErr) {
+      console.warn("Cloud DB login failed, falling back to local registry:", cloudErr);
+    }
+
+    // 2. Local Storage Fallback
+    const registry = getUsersRegistry();
     const found = registry.find((u) => u.email.toLowerCase() === normalizedEmail);
 
     if (!found) {
@@ -225,6 +316,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> => {
     if (!user) return false;
 
+    // 1. Update in Cloud DB if connected
+    try {
+      await cloudUpdateWorkspace(user.id, user.organizationId, organizationName, businessType);
+    } catch (e) {
+      console.warn("Cloud update workspace error:", e);
+    }
+
+    // 2. Update local registry and session
     const registry = getUsersRegistry();
     const updatedRegistry = registry.map((u) => {
       if (u.id === user.id || u.organizationId === user.organizationId) {
@@ -256,6 +355,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (existingProducts.length === 0) {
       const starters = getStarterProducts(businessType, user.organizationId);
       saveToLocalStorage(productsKey, starters);
+      // Also sync starters to Cloud DB
+      for (const p of starters) {
+        cloudSaveProduct(p).catch(() => {});
+      }
     }
 
     const customersKey = `nstok_${user.organizationId}_customers`;
@@ -263,6 +366,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (existingCustomers.length === 0) {
       const starterCusts = getStarterCustomers(user.organizationId);
       saveToLocalStorage(customersKey, starterCusts);
+      for (const c of starterCusts) {
+        cloudSaveCustomer(c).catch(() => {});
+      }
     }
 
     const transactionsKey = `nstok_${user.organizationId}_transactions`;
@@ -319,8 +425,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return { success: false, error: "Sesi pengguna tidak valid." };
 
     const normalizedEmail = data.email.trim().toLowerCase();
-    const registry = getUsersRegistry();
 
+    // 1. Sync to Cloud DB
+    try {
+      const cloudRes = await cloudCreateStaff(
+        user.organizationId,
+        data.name.trim(),
+        normalizedEmail,
+        data.password || "password123",
+        data.role,
+        data.phone
+      );
+      if (cloudRes && !cloudRes.success) {
+        console.warn("Cloud create staff warning:", cloudRes.error);
+      }
+    } catch (e) {
+      console.warn("Cloud create staff error:", e);
+    }
+
+    // 2. Local Registry
+    const registry = getUsersRegistry();
     if (registry.some((u) => u.email.toLowerCase() === normalizedEmail)) {
       return { success: false, error: "Alamat email ini sudah terdaftar." };
     }
@@ -345,12 +469,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleStaffStatus = (userId: string, isActive: boolean) => {
+    if (user?.organizationId) {
+      cloudToggleTeamMember(userId, user.organizationId, isActive).catch(() => {});
+    }
     const registry = getUsersRegistry();
     const updated = registry.map((u) => (u.id === userId ? { ...u, isActive } : u));
     saveUsersRegistry(updated);
   };
 
   const deleteStaffMember = (userId: string) => {
+    if (user?.organizationId) {
+      cloudDeleteTeamMember(userId, user.organizationId).catch(() => {});
+    }
     const registry = getUsersRegistry();
     const updated = registry.filter((u) => u.id !== userId);
     saveUsersRegistry(updated);

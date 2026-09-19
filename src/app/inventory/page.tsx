@@ -8,6 +8,7 @@ import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence
 import { getStarterProducts } from "@/lib/starter-templates";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
 import { useAuth } from "@/context/AuthContext";
+import { cloudGetProducts, cloudSaveProduct, cloudDeleteProduct } from "@/app/actions/cloud-sync";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,21 @@ export default function InventoryPage() {
 
     if (user) {
       const defaultProducts = getStarterProducts((user.businessType as any) || "FNB", orgId);
-      setProducts(loadFromLocalStorage(PRODUCTS_STORAGE_KEY, defaultProducts));
+      const local = loadFromLocalStorage<Product[]>(PRODUCTS_STORAGE_KEY, defaultProducts);
+      setProducts(local);
+
+      // Asynchronously fetch live data from Supabase Cloud DB
+      cloudGetProducts(orgId).then((cloudData) => {
+        if (cloudData && cloudData.length > 0) {
+          setProducts(cloudData);
+          saveToLocalStorage(PRODUCTS_STORAGE_KEY, cloudData);
+        } else if (local.length > 0) {
+          // Seed cloud if empty
+          for (const p of local) {
+            cloudSaveProduct(p).catch(() => {});
+          }
+        }
+      }).catch((e) => console.warn("Cloud product fetch warning:", e));
     }
   }, [user, authLoading, orgId, router, PRODUCTS_STORAGE_KEY]);
 
@@ -76,29 +91,27 @@ export default function InventoryPage() {
     setModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !sellingPrice) return;
 
     if (editingProduct) {
-      const updated = products.map((p) =>
-        p.id === editingProduct.id
-          ? {
-              ...p,
-              name,
-              sku,
-              category,
-              costPrice: costPrice || "0",
-              sellingPrice,
-              stock: parseInt(stock) || 0,
-              unit,
-              minStockAlert: parseInt(minStockAlert) || 5,
-              updatedAt: new Date(),
-            }
-          : p
-      );
+      const updatedProd: Product = {
+        ...editingProduct,
+        name,
+        sku,
+        category,
+        costPrice: costPrice || "0",
+        sellingPrice,
+        stock: parseInt(stock) || 0,
+        unit,
+        minStockAlert: parseInt(minStockAlert) || 5,
+        updatedAt: new Date(),
+      };
+      const updated = products.map((p) => (p.id === editingProduct.id ? updatedProd : p));
       setProducts(updated);
       saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
+      await cloudSaveProduct(updatedProd);
     } else {
       const newProd: Product = {
         id: `prod-${Date.now()}`,
@@ -122,16 +135,18 @@ export default function InventoryPage() {
       const updated = [newProd, ...products];
       setProducts(updated);
       saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
+      await cloudSaveProduct(newProd);
     }
 
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus produk ini dari katalog toko?")) {
       const updated = products.filter((p) => p.id !== id);
       setProducts(updated);
       saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
+      await cloudDeleteProduct(id);
     }
   };
 

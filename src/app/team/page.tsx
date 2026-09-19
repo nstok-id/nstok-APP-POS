@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, Role, UserAccount } from "@/context/AuthContext";
 import { HeaderKasir } from "@/components/HeaderKasir";
+import { cloudGetTeamMembers } from "@/app/actions/cloud-sync";
 import { 
   UsersRound, 
   Mail, 
@@ -56,7 +57,29 @@ export default function TeamPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const refreshMembers = () => {
-    setMembers(getWorkspaceTeamMembers());
+    const local = getWorkspaceTeamMembers();
+    setMembers(local);
+
+    if (user?.organizationId) {
+      cloudGetTeamMembers(user.organizationId).then((cloudMembers) => {
+        if (cloudMembers && cloudMembers.length > 0) {
+          const mapped: UserAccount[] = cloudMembers.map((cm: any) => ({
+            id: cm.id,
+            name: cm.name,
+            email: cm.email,
+            role: cm.role as Role,
+            organizationId: user.organizationId,
+            organizationName: user.organizationName,
+            businessType: user.businessType,
+            hasCompletedOnboarding: true,
+            createdAt: cm.joinedAt ? new Date(cm.joinedAt).toISOString() : new Date().toISOString(),
+            isActive: cm.isActive,
+            phone: cm.phone || "-",
+          }));
+          setMembers(mapped);
+        }
+      }).catch((e) => console.warn("Cloud team fetch warning:", e));
+    }
   };
 
   useEffect(() => {

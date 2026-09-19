@@ -8,6 +8,7 @@ import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence
 import { getStarterCustomers } from "@/lib/starter-templates";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
 import { useAuth } from "@/context/AuthContext";
+import { cloudGetCustomers, cloudSaveCustomer, cloudDeleteCustomer } from "@/app/actions/cloud-sync";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,20 @@ export default function CustomersPage() {
 
     if (user) {
       const defaultCustomers = getStarterCustomers(orgId);
-      setCustomers(loadFromLocalStorage(CUSTOMERS_STORAGE_KEY, defaultCustomers));
+      const local = loadFromLocalStorage<Customer[]>(CUSTOMERS_STORAGE_KEY, defaultCustomers);
+      setCustomers(local);
+
+      // Asynchronously fetch live data from Supabase Cloud DB
+      cloudGetCustomers(orgId).then((cloudData) => {
+        if (cloudData && cloudData.length > 0) {
+          setCustomers(cloudData);
+          saveToLocalStorage(CUSTOMERS_STORAGE_KEY, cloudData);
+        } else if (local.length > 0) {
+          for (const c of local) {
+            cloudSaveCustomer(c).catch(() => {});
+          }
+        }
+      }).catch((e) => console.warn("Cloud customer fetch warning:", e));
     }
   }, [user, authLoading, orgId, router, CUSTOMERS_STORAGE_KEY]);
 
@@ -65,26 +79,24 @@ export default function CustomersPage() {
     setModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone) return;
 
     if (editingCustomer) {
-      const updated = customers.map((c) =>
-        c.id === editingCustomer.id
-          ? {
-              ...c,
-              name,
-              phone,
-              email: email || null,
-              address: address || null,
-              notes: notes || null,
-              updatedAt: new Date(),
-            }
-          : c
-      );
+      const updatedCust: Customer = {
+        ...editingCustomer,
+        name,
+        phone,
+        email: email || null,
+        address: address || null,
+        notes: notes || null,
+        updatedAt: new Date(),
+      };
+      const updated = customers.map((c) => (c.id === editingCustomer.id ? updatedCust : c));
       setCustomers(updated);
       saveToLocalStorage(CUSTOMERS_STORAGE_KEY, updated);
+      await cloudSaveCustomer(updatedCust);
     } else {
       const newCust: Customer = {
         id: `cust-${Date.now()}`,
@@ -103,16 +115,18 @@ export default function CustomersPage() {
       const updated = [newCust, ...customers];
       setCustomers(updated);
       saveToLocalStorage(CUSTOMERS_STORAGE_KEY, updated);
+      await cloudSaveCustomer(newCust);
     }
 
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Hapus data pelanggan ini dari CRM toko?")) {
       const updated = customers.filter((c) => c.id !== id);
       setCustomers(updated);
       saveToLocalStorage(CUSTOMERS_STORAGE_KEY, updated);
+      await cloudDeleteCustomer(id);
     }
   };
 

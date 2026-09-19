@@ -1,158 +1,186 @@
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from './schema';
 
 export * from './schema';
 
-// Initial Mock Dataset for Offline-First / Browser LocalStorage Seeding
-export const INITIAL_PRODUCTS: Array<schema.Product> = [
-  {
-    id: 'prod-1',
-    organizationId: 'org-demo-1',
-    outletId: 'outlet-1',
-    name: 'Kopi Susu Gula Aren',
-    sku: 'BEV-001',
-    barcode: '899123456001',
-    category: 'Minuman',
-    costPrice: '8000',
-    sellingPrice: '18000',
-    wholesalePrice: '15000',
-    minWholesaleQty: 10,
-    stock: 85,
-    unit: 'cup',
-    minStockAlert: 10,
-    imageUrl: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'prod-2',
-    organizationId: 'org-demo-1',
-    outletId: 'outlet-1',
-    name: 'Espresso Single Shot',
-    sku: 'BEV-002',
-    barcode: '899123456002',
-    category: 'Minuman',
-    costPrice: '5000',
-    sellingPrice: '12000',
-    wholesalePrice: '10000',
-    minWholesaleQty: 10,
-    stock: 120,
-    unit: 'cup',
-    minStockAlert: 15,
-    imageUrl: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'prod-3',
-    organizationId: 'org-demo-1',
-    outletId: 'outlet-1',
-    name: 'Croissant Butter Original',
-    sku: 'BAK-001',
-    barcode: '899123456003',
-    category: 'Makanan',
-    costPrice: '12000',
-    sellingPrice: '24000',
-    wholesalePrice: '20000',
-    minWholesaleQty: 5,
-    stock: 35,
-    unit: 'pcs',
-    minStockAlert: 5,
-    imageUrl: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'prod-4',
-    organizationId: 'org-demo-1',
-    outletId: 'outlet-1',
-    name: 'Roti Bakar Cokelat Keju',
-    sku: 'BAK-002',
-    barcode: '899123456004',
-    category: 'Makanan',
-    costPrice: '9000',
-    sellingPrice: '20000',
-    wholesalePrice: '17000',
-    minWholesaleQty: 5,
-    stock: 40,
-    unit: 'porsi',
-    minStockAlert: 5,
-    imageUrl: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'prod-5',
-    organizationId: 'org-demo-1',
-    outletId: 'outlet-1',
-    name: 'Air Mineral 600ml',
-    sku: 'BEV-003',
-    barcode: '899123456005',
-    category: 'Minuman',
-    costPrice: '2500',
-    sellingPrice: '5000',
-    wholesalePrice: '4000',
-    minWholesaleQty: 24,
-    stock: 200,
-    unit: 'botol',
-    minStockAlert: 20,
-    imageUrl: '',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+const connectionString = process.env.DATABASE_URL;
 
-export const INITIAL_CUSTOMERS: Array<schema.Customer> = [
-  {
-    id: 'cust-1',
-    organizationId: 'org-demo-1',
-    name: 'Budi Santoso',
-    phone: '081234567890',
-    email: 'budi@example.com',
-    address: 'Jl. Melati No. 12',
-    loyaltyPoints: 150,
-    totalSpent: '1500000',
-    tier: 'GOLD',
-    notes: 'Pelanggan tetap kopi pagi',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'cust-2',
-    organizationId: 'org-demo-1',
-    name: 'Siti Aminah',
-    phone: '081987654321',
-    email: 'siti@example.com',
-    address: 'Jl. Mawar No. 45',
-    loyaltyPoints: 45,
-    totalSpent: '450000',
-    tier: 'SILVER',
-    notes: 'Suka diskon member',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+export const client = connectionString 
+  ? postgres(connectionString, { prepare: false, max: 10 }) 
+  : null;
 
-export const INITIAL_SUPPLIERS: Array<schema.Supplier> = [
-  {
-    id: 'sup-1',
-    organizationId: 'org-demo-1',
-    name: 'PT Kopi Nusantara Jaya',
-    contactPerson: 'Hendra Setiawan',
-    phone: '081122334455',
-    email: 'sales@kopinusantara.id',
-    address: 'Kawasan Industri Bandung Blok C2',
-    paymentTerms: 'TOP 14 Hari',
-    createdAt: new Date(),
-  },
-  {
-    id: 'sup-2',
-    organizationId: 'org-demo-1',
-    name: 'CV Dairy Prima Abadi',
-    contactPerson: 'Dewi Lestari',
-    phone: '081299887766',
-    email: 'order@dairyprima.com',
-    address: 'Jl. Raya Bogor KM 28',
-    paymentTerms: 'Cash on Delivery',
-    createdAt: new Date(),
-  },
-];
+export const db = client ? drizzle(client, { schema }) : null;
+
+let tablesInitialized = false;
+
+export async function ensureTablesExist() {
+  if (tablesInitialized || !client) return;
+  try {
+    await client.unsafe(`
+      CREATE TABLE IF NOT EXISTS organizations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE,
+        business_type TEXT NOT NULL DEFAULT 'RETAIL',
+        logo_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        phone TEXT,
+        avatar_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS team_members (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'KASIR',
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        deactivated_at TIMESTAMP WITH TIME ZONE,
+        deactivated_reason TEXT,
+        joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS team_invitations (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'KASIR',
+        token TEXT UNIQUE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        invited_by_user_id TEXT NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS workspace_settings (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT UNIQUE NOT NULL,
+        business_name TEXT NOT NULL,
+        business_address TEXT,
+        phone TEXT,
+        email TEXT,
+        npwp TEXT,
+        currency TEXT NOT NULL DEFAULT 'IDR',
+        tax_percentage NUMERIC(5, 2) NOT NULL DEFAULT '0.00',
+        tax_enabled BOOLEAN NOT NULL DEFAULT false,
+        rounding_rule TEXT NOT NULL DEFAULT 'NONE',
+        receipt_paper_size TEXT NOT NULL DEFAULT '58mm',
+        receipt_header TEXT,
+        receipt_footer TEXT,
+        receipt_show_logo BOOLEAN NOT NULL DEFAULT true,
+        low_stock_threshold_default INTEGER NOT NULL DEFAULT 5,
+        approval_discount_threshold_percent INTEGER NOT NULL DEFAULT 20,
+        approval_require_void BOOLEAN NOT NULL DEFAULT true,
+        session_timeout_minutes INTEGER NOT NULL DEFAULT 60,
+        active_modules TEXT NOT NULL DEFAULT '[]',
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS outlets (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        address TEXT,
+        phone TEXT,
+        opening_hours TEXT,
+        is_main BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        outlet_id TEXT,
+        name TEXT NOT NULL,
+        sku TEXT NOT NULL,
+        barcode TEXT,
+        category TEXT NOT NULL DEFAULT 'Umum',
+        cost_price NUMERIC(12, 2) NOT NULL DEFAULT '0',
+        selling_price NUMERIC(12, 2) NOT NULL,
+        wholesale_price NUMERIC(12, 2),
+        min_wholesale_qty INTEGER DEFAULT 10,
+        stock INTEGER NOT NULL DEFAULT 0,
+        unit TEXT NOT NULL DEFAULT 'pcs',
+        min_stock_alert INTEGER NOT NULL DEFAULT 5,
+        image_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        address TEXT,
+        loyalty_points INTEGER NOT NULL DEFAULT 0,
+        total_spent NUMERIC(14, 2) NOT NULL DEFAULT '0',
+        tier TEXT NOT NULL DEFAULT 'BRONZE',
+        notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        contact_person TEXT,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        payment_terms TEXT DEFAULT 'Cash',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS cashier_shifts (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        cashier_name TEXT NOT NULL,
+        starting_cash NUMERIC(12, 2) NOT NULL DEFAULT '0',
+        expected_cash NUMERIC(12, 2) NOT NULL DEFAULT '0',
+        actual_cash NUMERIC(12, 2),
+        discrepancy NUMERIC(12, 2),
+        total_sales NUMERIC(14, 2) NOT NULL DEFAULT '0',
+        status TEXT NOT NULL DEFAULT 'OPEN',
+        opened_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+        closed_at TIMESTAMP WITH TIME ZONE,
+        notes TEXT
+      );
+      CREATE TABLE IF NOT EXISTS transactions (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        shift_id TEXT,
+        invoice_number TEXT UNIQUE NOT NULL,
+        cashier_id TEXT NOT NULL,
+        cashier_name TEXT NOT NULL,
+        customer_id TEXT,
+        customer_name TEXT,
+        subtotal NUMERIC(14, 2) NOT NULL,
+        discount NUMERIC(14, 2) NOT NULL DEFAULT '0',
+        tax NUMERIC(14, 2) NOT NULL DEFAULT '0',
+        grand_total NUMERIC(14, 2) NOT NULL,
+        payment_method TEXT NOT NULL DEFAULT 'CASH',
+        paid_amount NUMERIC(14, 2) NOT NULL,
+        change_amount NUMERIC(14, 2) NOT NULL DEFAULT '0',
+        status TEXT NOT NULL DEFAULT 'COMPLETED',
+        items_json TEXT NOT NULL,
+        table_number TEXT,
+        order_notes TEXT,
+        void_reason TEXT,
+        void_approved_by TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+      );
+    `);
+    tablesInitialized = true;
+    console.log("Supabase DDL migration applied successfully.");
+  } catch (err) {
+    console.error("ensureTablesExist error:", err);
+  }
+}
+
+export * from './initial-data';
+

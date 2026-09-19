@@ -6,8 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useWorkspaceSettings } from "@/context/WorkspaceSettingsContext";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { Card, Badge } from "@/components/ui/atoms";
-import { Product, Transaction, Customer } from "@/db/schema";
-import { loadFromLocalStorage } from "@/lib/dual-persistence";
+import type { Product, Transaction, Customer } from "@/db/schema";
+import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
 import { getStarterProducts, getStarterCustomers } from "@/lib/starter-templates";
 import { 
   TrendingUp, 
@@ -24,6 +24,12 @@ import {
   Loader2,
   Store
 } from "lucide-react";
+
+import {
+  cloudGetProducts,
+  cloudGetCustomers,
+  cloudGetTransactions,
+} from "@/app/actions/cloud-sync";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -52,6 +58,28 @@ export default function DashboardPage() {
       setProducts(loadFromLocalStorage<Product[]>(PRODUCTS_STORAGE_KEY, defaultProducts));
       setCustomers(loadFromLocalStorage<Customer[]>(CUSTOMERS_STORAGE_KEY, defaultCustomers));
       setTransactions(loadFromLocalStorage<Transaction[]>(TRANSACTIONS_STORAGE_KEY, []));
+
+      // Live fetch from Supabase Cloud DB
+      cloudGetTransactions(orgId).then((cloudTrx) => {
+        if (cloudTrx) {
+          setTransactions(cloudTrx);
+          saveToLocalStorage(TRANSACTIONS_STORAGE_KEY, cloudTrx);
+        }
+      }).catch(() => {});
+
+      cloudGetProducts(orgId).then((cloudProds) => {
+        if (cloudProds && cloudProds.length > 0) {
+          setProducts(cloudProds);
+          saveToLocalStorage(PRODUCTS_STORAGE_KEY, cloudProds);
+        }
+      }).catch(() => {});
+
+      cloudGetCustomers(orgId).then((cloudCusts) => {
+        if (cloudCusts && cloudCusts.length > 0) {
+          setCustomers(cloudCusts);
+          saveToLocalStorage(CUSTOMERS_STORAGE_KEY, cloudCusts);
+        }
+      }).catch(() => {});
     }
   }, [user, authLoading, orgId, router, PRODUCTS_STORAGE_KEY, CUSTOMERS_STORAGE_KEY, TRANSACTIONS_STORAGE_KEY]);
 

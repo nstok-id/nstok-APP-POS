@@ -19,6 +19,15 @@ import { History, Plus, Loader2, ShoppingBag, X, ChevronRight } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  cloudGetProducts,
+  cloudGetCustomers,
+  cloudGetTransactions,
+  cloudCreateTransaction,
+  cloudSaveProduct,
+  cloudDeleteProduct,
+  cloudSaveCustomer,
+} from "@/app/actions/cloud-sync";
 
 export default function PosPage() {
   const router = useRouter();
@@ -70,6 +79,31 @@ export default function PosPage() {
       setProducts(loadedProducts);
       setCustomers(loadedCustomers);
       setTransactions(loadedTrx);
+
+      // Async live fetch from Cloud DB (Supabase)
+      cloudGetProducts(orgId).then((cloudProds) => {
+        if (cloudProds && cloudProds.length > 0) {
+          setProducts(cloudProds);
+          saveToLocalStorage(PRODUCTS_STORAGE_KEY, cloudProds);
+        } else if (cloudProds && cloudProds.length === 0 && loadedProducts.length > 0) {
+          // Seed cloud with initial starter products
+          loadedProducts.forEach((p) => cloudSaveProduct(p).catch(() => {}));
+        }
+      }).catch(() => {});
+
+      cloudGetCustomers(orgId).then((cloudCusts) => {
+        if (cloudCusts && cloudCusts.length > 0) {
+          setCustomers(cloudCusts);
+          saveToLocalStorage(CUSTOMERS_STORAGE_KEY, cloudCusts);
+        }
+      }).catch(() => {});
+
+      cloudGetTransactions(orgId).then((cloudTrx) => {
+        if (cloudTrx) {
+          setTransactions(cloudTrx);
+          saveToLocalStorage(TRANSACTIONS_STORAGE_KEY, cloudTrx);
+        }
+      }).catch(() => {});
     }
   }, [user, authLoading, orgId, router, PRODUCTS_STORAGE_KEY, CUSTOMERS_STORAGE_KEY, TRANSACTIONS_STORAGE_KEY]);
 
@@ -77,6 +111,9 @@ export default function PosPage() {
     const updatedTrx = [trx, ...transactions];
     setTransactions(updatedTrx);
     saveToLocalStorage(TRANSACTIONS_STORAGE_KEY, updatedTrx);
+
+    // Save to Cloud DB (Supabase)
+    cloudCreateTransaction(trx).catch((err) => console.warn("Cloud create trx warning:", err));
 
     // Deduct stock for sold items
     const soldItems = JSON.parse(trx.itemsJson || "[]");
@@ -100,11 +137,13 @@ export default function PosPage() {
           if (c.id === trx.customerId) {
             const addedPoints = Math.floor(trxAmount / 10000);
             const currentSpent = parseFloat(c.totalSpent || "0") || 0;
-            return {
+            const updatedCust = {
               ...c,
               loyaltyPoints: (c.loyaltyPoints || 0) + addedPoints,
               totalSpent: (currentSpent + trxAmount).toString(),
             };
+            cloudSaveCustomer(updatedCust).catch(() => {});
+            return updatedCust;
           }
           return c;
         });
@@ -182,6 +221,7 @@ export default function PosPage() {
     const updated = [newProduct, ...products];
     setProducts(updated);
     saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
+    cloudSaveProduct(newProduct).catch(() => {});
 
     setNewProdName("");
     setNewProdSku("");
@@ -194,6 +234,7 @@ export default function PosPage() {
     const updated = products.filter((p) => p.id !== prodId);
     setProducts(updated);
     saveToLocalStorage(PRODUCTS_STORAGE_KEY, updated);
+    cloudDeleteProduct(prodId).catch(() => {});
   };
 
   if (authLoading || !user) {

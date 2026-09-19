@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Truck, Search, Plus, Phone, Mail, MapPin, Edit, Trash2 } from "lucide-react";
 import { Supplier } from "@/db/schema";
-import { INITIAL_SUPPLIERS } from "@/db/index";
+import { INITIAL_SUPPLIERS } from "@/db/initial-data";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { Button } from "@/components/ui/button";
