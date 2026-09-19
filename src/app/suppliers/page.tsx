@@ -1,19 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Truck, Search, Plus, Phone, Mail, MapPin, Edit, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Truck, Search, Plus, Phone, Mail, MapPin, Edit, Trash2, Loader2 } from "lucide-react";
 import { Supplier } from "@/db/schema";
 import { INITIAL_SUPPLIERS } from "@/db/initial-data";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
+import { useAuth } from "@/context/AuthContext";
+import { cloudGetSuppliers, cloudSaveSupplier, cloudDeleteSupplier } from "@/app/actions/cloud-sync";
 import { HeaderKasir } from "@/components/HeaderKasir";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/atoms";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-const SUPPLIERS_STORAGE_KEY = "nstok_suppliers_v3";
-
 export default function SuppliersPage() {
+  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,9 +29,32 @@ export default function SuppliersPage() {
   const [address, setAddress] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("TOP 14 Hari");
 
+  const orgId = user?.organizationId || "org-demo-1";
+  const SUPPLIERS_STORAGE_KEY = `nstok_${orgId}_suppliers`;
+
   useEffect(() => {
-    setSuppliers(loadFromLocalStorage(SUPPLIERS_STORAGE_KEY, INITIAL_SUPPLIERS));
-  }, []);
+    if (!authLoading && !user) {
+      router.push("/login");
+      return;
+    }
+
+    if (user) {
+      const defaultSuppliers = INITIAL_SUPPLIERS.map((s) => ({ ...s, organizationId: orgId }));
+      const local = loadFromLocalStorage<Supplier[]>(SUPPLIERS_STORAGE_KEY, defaultSuppliers);
+      setSuppliers(local);
+
+      cloudGetSuppliers(orgId).then((cloudData) => {
+        if (cloudData && cloudData.length > 0) {
+          setSuppliers(cloudData);
+          saveToLocalStorage(SUPPLIERS_STORAGE_KEY, cloudData);
+        } else if (local.length > 0) {
+          for (const s of local) {
+            cloudSaveSupplier(s).catch(() => {});
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [user, authLoading, orgId, router, SUPPLIERS_STORAGE_KEY]);
 
   const openAddModal = () => {
     setEditingSupplier(null);
@@ -52,22 +78,29 @@ export default function SuppliersPage() {
     setModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
 
     if (editingSupplier) {
-      const updated = suppliers.map((s) =>
-        s.id === editingSupplier.id
-          ? { ...s, name, contactPerson, phone, email, address, paymentTerms }
-          : s
-      );
+      const updatedSup: Supplier = {
+        ...editingSupplier,
+        organizationId: orgId,
+        name,
+        contactPerson: contactPerson || null,
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        paymentTerms: paymentTerms || "Cash",
+      };
+      const updated = suppliers.map((s) => (s.id === editingSupplier.id ? updatedSup : s));
       setSuppliers(updated);
       saveToLocalStorage(SUPPLIERS_STORAGE_KEY, updated);
+      await cloudSaveSupplier(updatedSup);
     } else {
       const newSup: Supplier = {
         id: `sup-${Date.now()}`,
-        organizationId: "org-demo-1",
+        organizationId: orgId,
         name,
         contactPerson: contactPerson || null,
         phone: phone || null,
@@ -79,15 +112,17 @@ export default function SuppliersPage() {
       const updated = [newSup, ...suppliers];
       setSuppliers(updated);
       saveToLocalStorage(SUPPLIERS_STORAGE_KEY, updated);
+      await cloudSaveSupplier(newSup);
     }
     setModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Hapus data supplier ini?")) {
       const updated = suppliers.filter((s) => s.id !== id);
       setSuppliers(updated);
       saveToLocalStorage(SUPPLIERS_STORAGE_KEY, updated);
+      await cloudDeleteSupplier(id);
     }
   };
 

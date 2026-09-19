@@ -1,8 +1,8 @@
 "use server";
 
-import { db, ensureTablesExist, organizations, users, teamMembers, workspaceSettings, products, customers, transactions, cashierShifts } from "@/db";
+import { db, ensureTablesExist, organizations, users, teamMembers, workspaceSettings, products, customers, transactions, cashierShifts, suppliers } from "@/db";
 import { eq, desc, and } from "drizzle-orm";
-import type { Product, Customer, Transaction, WorkspaceSettings, User, TeamMember } from "@/db";
+import type { Product, Customer, Transaction, WorkspaceSettings, User, TeamMember, Supplier, CashierShift } from "@/db";
 
 // Helper to check if Cloud DB is configured
 export async function isCloudDbConnected(): Promise<boolean> {
@@ -10,7 +10,7 @@ export async function isCloudDbConnected(): Promise<boolean> {
 }
 
 // ----------------------------------------------------
-// 1. AUTH & WORKSPACE ONBOARDING
+// 1. AUTH & WORKSPACE ONBOARDING (MULTI-TENANT)
 // ----------------------------------------------------
 
 export async function cloudRegister(
@@ -22,16 +22,20 @@ export async function cloudRegister(
   if (!db) return null;
   try {
     await ensureTablesExist();
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if user already exists
-    const existing = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
+    const existing = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
     if (existing.length > 0) {
-      return { success: false, error: "Email sudah terdaftar." };
+      return { success: false, error: "Email ini sudah terdaftar. Silakan gunakan email lain atau masuk." };
     }
 
-    const orgId = `org-${Date.now()}`;
-    const newOrgName = `Toko ${name}`;
+    const orgRandom = Math.random().toString(36).substring(2, 7);
+    const orgId = `org-${Date.now()}-${orgRandom}`;
+    const newOrgName = `Toko ${name.trim()}`;
+    const userId = `usr-${Date.now()}-${orgRandom}`;
 
-    // Create organization
+    // 1. Create organization
     await db.insert(organizations).values({
       id: orgId,
       name: newOrgName,
@@ -40,19 +44,19 @@ export async function cloudRegister(
       updatedAt: new Date(),
     });
 
-    // Create user
+    // 2. Create user
     const [newUser] = await db.insert(users).values({
-      id: `usr-${Date.now()}`,
-      name,
-      email: email.toLowerCase().trim(),
+      id: userId,
+      name: name.trim(),
+      email: normalizedEmail,
       password: passwordHash,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
 
-    // Create team member role
+    // 3. Create team member link (Owner to this new org)
     await db.insert(teamMembers).values({
-      id: `tm-${Date.now()}`,
+      id: `tm-${Date.now()}-${orgRandom}`,
       organizationId: orgId,
       userId: newUser.id,
       role: (role as any) || "OWNER",
@@ -60,9 +64,9 @@ export async function cloudRegister(
       joinedAt: new Date(),
     });
 
-    // Create default workspace settings
+    // 4. Create default workspace settings
     await db.insert(workspaceSettings).values({
-      id: `set-${Date.now()}`,
+      id: `set-${Date.now()}-${orgRandom}`,
       organizationId: orgId,
       businessName: newOrgName,
       currency: "IDR",
@@ -94,10 +98,11 @@ export async function cloudLogin(email: string, passwordHash: string) {
   if (!db) return null;
   try {
     await ensureTablesExist();
+    const normalizedEmail = email.toLowerCase().trim();
     const userRecords = await db
       .select()
       .from(users)
-      .where(and(eq(users.email, email.toLowerCase().trim()), eq(users.password, passwordHash)))
+      .where(and(eq(users.email, normalizedEmail), eq(users.password, passwordHash)))
       .limit(1);
 
     if (userRecords.length === 0) {
@@ -106,15 +111,15 @@ export async function cloudLogin(email: string, passwordHash: string) {
 
     const matchedUser = userRecords[0];
 
-    // Find user's organization & role
+    // Find user's active organization & role
     const members = await db
       .select()
       .from(teamMembers)
       .where(and(eq(teamMembers.userId, matchedUser.id), eq(teamMembers.isActive, true)))
       .limit(1);
 
-    let orgId = "org-demo-1";
-    let orgName = "Toko Saya";
+    let orgId = `org-default-${matchedUser.id}`;
+    let orgName = `Toko ${matchedUser.name}`;
     let role = "OWNER";
     let businessType = "RETAIL";
 
@@ -175,7 +180,7 @@ export async function cloudUpdateWorkspace(
 }
 
 // ----------------------------------------------------
-// 2. PRODUCTS SYNC
+// 2. PRODUCTS SYNC (SCOPED BY ORGANIZATION_ID)
 // ----------------------------------------------------
 
 export async function cloudGetProducts(organizationId: string): Promise<Product[] | null> {
@@ -204,6 +209,7 @@ export async function cloudSaveProduct(prod: Product) {
       await db
         .update(products)
         .set({
+          organizationId: prod.organizationId,
           name: prod.name,
           sku: prod.sku,
           barcode: prod.barcode,
@@ -241,7 +247,7 @@ export async function cloudDeleteProduct(productId: string) {
 }
 
 // ----------------------------------------------------
-// 3. TRANSACTIONS SYNC
+// 3. TRANSACTIONS SYNC (SCOPED BY ORGANIZATION_ID)
 // ----------------------------------------------------
 
 export async function cloudGetTransactions(organizationId: string): Promise<Transaction[] | null> {
@@ -290,7 +296,7 @@ export async function cloudCreateTransaction(trx: Transaction) {
 }
 
 // ----------------------------------------------------
-// 4. CUSTOMERS SYNC
+// 4. CUSTOMERS SYNC (SCOPED BY ORGANIZATION_ID)
 // ----------------------------------------------------
 
 export async function cloudGetCustomers(organizationId: string): Promise<Customer[] | null> {
@@ -319,6 +325,7 @@ export async function cloudSaveCustomer(cust: Customer) {
       await db
         .update(customers)
         .set({
+          organizationId: cust.organizationId,
           name: cust.name,
           phone: cust.phone,
           email: cust.email,
@@ -351,7 +358,65 @@ export async function cloudDeleteCustomer(customerId: string) {
 }
 
 // ----------------------------------------------------
-// 5. TEAM & STAFF SYNC
+// 5. SUPPLIERS SYNC (SCOPED BY ORGANIZATION_ID)
+// ----------------------------------------------------
+
+export async function cloudGetSuppliers(organizationId: string): Promise<Supplier[] | null> {
+  if (!db) return null;
+  try {
+    await ensureTablesExist();
+    const list = await db
+      .select()
+      .from(suppliers)
+      .where(eq(suppliers.organizationId, organizationId))
+      .orderBy(desc(suppliers.createdAt));
+
+    return list;
+  } catch (error) {
+    console.error("cloudGetSuppliers error:", error);
+    return null;
+  }
+}
+
+export async function cloudSaveSupplier(sup: Supplier) {
+  if (!db) return null;
+  try {
+    await ensureTablesExist();
+    const existing = await db.select().from(suppliers).where(eq(suppliers.id, sup.id)).limit(1);
+    if (existing.length > 0) {
+      await db
+        .update(suppliers)
+        .set({
+          name: sup.name,
+          contactPerson: sup.contactPerson,
+          phone: sup.phone,
+          email: sup.email,
+          address: sup.address,
+          paymentTerms: sup.paymentTerms,
+        })
+        .where(eq(suppliers.id, sup.id));
+    } else {
+      await db.insert(suppliers).values(sup);
+    }
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function cloudDeleteSupplier(supplierId: string) {
+  if (!db) return null;
+  try {
+    await ensureTablesExist();
+    await db.delete(suppliers).where(eq(suppliers.id, supplierId));
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ----------------------------------------------------
+// 6. TEAM & STAFF SYNC (SCOPED BY ORGANIZATION_ID)
 // ----------------------------------------------------
 
 export async function cloudGetTeamMembers(organizationId: string) {
@@ -390,17 +455,18 @@ export async function cloudCreateStaff(
   if (!db) return null;
   try {
     await ensureTablesExist();
+    const normalizedEmail = email.toLowerCase().trim();
     // Check if email already exists
-    const existing = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
+    const existing = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
     let userId = "";
 
     if (existing.length > 0) {
       userId = existing[0].id;
     } else {
       const [newUser] = await db.insert(users).values({
-        id: `usr-${Date.now()}`,
-        name,
-        email: email.toLowerCase().trim(),
+        id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        name: name.trim(),
+        email: normalizedEmail,
         password: passwordHash,
         phone: phone || null,
         createdAt: new Date(),
@@ -410,7 +476,7 @@ export async function cloudCreateStaff(
     }
 
     await db.insert(teamMembers).values({
-      id: `tm-${Date.now()}`,
+      id: `tm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       organizationId,
       userId,
       role: role as any,
@@ -445,3 +511,4 @@ export async function cloudToggleTeamMember(userId: string, organizationId: stri
     return { success: false, error: error.message };
   }
 }
+

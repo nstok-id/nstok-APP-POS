@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Product, Customer } from "@/db/schema";
 import { useWorkspaceSettings } from "./WorkspaceSettingsContext";
+import { useAuth } from "./AuthContext";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
 
 export interface CartItem {
@@ -50,10 +51,8 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-const CART_STORAGE_KEY = "nstok_active_cart_v3";
-const HOLD_STORAGE_KEY = "nstok_hold_bills_v3";
-
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const { calculateTax, applyRounding } = useWorkspaceSettings();
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -63,16 +62,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [holdBills, setHoldBills] = useState<HoldBill[]>([]);
 
+  const orgId = user?.organizationId || "org-demo-1";
+  const cartKey = `nstok_${orgId}_active_cart`;
+  const holdKey = `nstok_${orgId}_hold_bills`;
+
   useEffect(() => {
-    const savedCart = loadFromLocalStorage<CartItem[]>(CART_STORAGE_KEY, []);
-    const savedHold = loadFromLocalStorage<HoldBill[]>(HOLD_STORAGE_KEY, []);
+    const savedCart = loadFromLocalStorage<CartItem[]>(cartKey, []);
+    const savedHold = loadFromLocalStorage<HoldBill[]>(holdKey, []);
     setItems(savedCart);
     setHoldBills(savedHold);
-  }, []);
+  }, [orgId, cartKey, holdKey]);
 
   const saveCart = (newItems: CartItem[]) => {
     setItems(newItems);
-    saveToLocalStorage(CART_STORAGE_KEY, newItems);
+    saveToLocalStorage(cartKey, newItems);
   };
 
   const addToCart = (product: Product, qty: number = 1) => {
@@ -105,7 +108,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ];
       }
 
-      saveToLocalStorage(CART_STORAGE_KEY, newItems);
+      saveToLocalStorage(cartKey, newItems);
       return newItems;
     });
   };
@@ -127,7 +130,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }
         return item;
       });
-      saveToLocalStorage(CART_STORAGE_KEY, newItems);
+      saveToLocalStorage(cartKey, newItems);
       return newItems;
     });
   };
@@ -135,7 +138,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeFromCart = (productId: string) => {
     setItems((prev) => {
       const newItems = prev.filter((i) => i.product.id !== productId);
-      saveToLocalStorage(CART_STORAGE_KEY, newItems);
+      saveToLocalStorage(cartKey, newItems);
       return newItems;
     });
   };
@@ -147,7 +150,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setOrderNotes("");
     setDiscountPercent(0);
     setDiscountAmount(0);
-    saveToLocalStorage(CART_STORAGE_KEY, []);
+    saveToLocalStorage(cartKey, []);
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.appliedPrice * item.quantity, 0);
@@ -169,7 +172,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
     const updated = [newBill, ...holdBills];
     setHoldBills(updated);
-    saveToLocalStorage(HOLD_STORAGE_KEY, updated);
+    saveToLocalStorage(holdKey, updated);
     clearCart();
     return true;
   };
@@ -182,13 +185,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setTableNumber(bill.tableNumber || "");
     setOrderNotes(bill.notes || "");
     deleteHoldBill(billId);
-    saveToLocalStorage(CART_STORAGE_KEY, bill.items);
+    saveToLocalStorage(cartKey, bill.items);
   };
 
   const deleteHoldBill = (billId: string) => {
     const updated = holdBills.filter((b) => b.id !== billId);
     setHoldBills(updated);
-    saveToLocalStorage(HOLD_STORAGE_KEY, updated);
+    saveToLocalStorage(holdKey, updated);
   };
 
   return (

@@ -40,8 +40,8 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS team_members (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
+        user_id TEXT NOT NULL DEFAULT '',
         role TEXT NOT NULL DEFAULT 'KASIR',
         is_active BOOLEAN NOT NULL DEFAULT true,
         deactivated_at TIMESTAMP WITH TIME ZONE,
@@ -50,12 +50,12 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS team_invitations (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        email TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
+        email TEXT NOT NULL DEFAULT '',
         role TEXT NOT NULL DEFAULT 'KASIR',
         token TEXT UNIQUE NOT NULL,
         status TEXT NOT NULL DEFAULT 'PENDING',
-        invited_by_user_id TEXT NOT NULL,
+        invited_by_user_id TEXT NOT NULL DEFAULT '',
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
       );
@@ -84,7 +84,7 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS outlets (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
         name TEXT NOT NULL DEFAULT '',
         address TEXT,
         phone TEXT,
@@ -94,7 +94,7 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
         outlet_id TEXT,
         name TEXT NOT NULL DEFAULT '',
         sku TEXT NOT NULL DEFAULT '',
@@ -113,7 +113,7 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS customers (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
         name TEXT NOT NULL DEFAULT '',
         phone TEXT NOT NULL DEFAULT '',
         email TEXT,
@@ -127,7 +127,7 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS suppliers (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
         name TEXT NOT NULL DEFAULT '',
         contact_person TEXT,
         phone TEXT,
@@ -138,8 +138,8 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS cashier_shifts (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
+        user_id TEXT NOT NULL DEFAULT '',
         cashier_name TEXT NOT NULL DEFAULT '',
         starting_cash NUMERIC(12, 2) NOT NULL DEFAULT '0',
         expected_cash NUMERIC(12, 2) NOT NULL DEFAULT '0',
@@ -153,10 +153,10 @@ export async function ensureTablesExist() {
       );
       CREATE TABLE IF NOT EXISTS transactions (
         id TEXT PRIMARY KEY,
-        organization_id TEXT NOT NULL,
+        organization_id TEXT NOT NULL DEFAULT '',
         shift_id TEXT,
         invoice_number TEXT UNIQUE NOT NULL,
-        cashier_id TEXT NOT NULL,
+        cashier_id TEXT NOT NULL DEFAULT '',
         cashier_name TEXT NOT NULL DEFAULT '',
         customer_id TEXT,
         customer_name TEXT,
@@ -177,7 +177,7 @@ export async function ensureTablesExist() {
       );
     `);
 
-    // 2. Patch any existing tables with missing columns (ALTER TABLE ADD COLUMN IF NOT EXISTS)
+    // 2. Patch missing columns on existing tables
     await client.unsafe(`
       ALTER TABLE organizations ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
       ALTER TABLE organizations ADD COLUMN IF NOT EXISTS slug TEXT;
@@ -252,6 +252,15 @@ export async function ensureTablesExist() {
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS organization_id TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS contact_person TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS phone TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS address TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS payment_terms TEXT DEFAULT 'Cash';
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
       ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS organization_id TEXT;
       ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS user_id TEXT;
       ALTER TABLE cashier_shifts ADD COLUMN IF NOT EXISTS cashier_name TEXT NOT NULL DEFAULT '';
@@ -288,7 +297,7 @@ export async function ensureTablesExist() {
       ALTER TABLE transactions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
     `);
 
-    // 3. Relax NOT NULL on any legacy camelCase columns from older schemas (e.g. "userId", "organizationId")
+    // 3. Relax NOT NULL on all legacy columns (both lowercase and camelCase)
     await client.unsafe(`
       DO $$ 
       DECLARE
@@ -299,15 +308,22 @@ export async function ensureTablesExist() {
               FROM information_schema.columns 
               WHERE table_schema = 'public' 
                 AND is_nullable = 'NO'
-                AND column_name IN (
-                  'userId', 'organizationId', 'orgId', 'businessType', 
-                  'createdAt', 'updatedAt', 'avatarUrl', 'logoUrl', 
-                  'isActive', 'joinedAt', 'outletId', 'businessName',
-                  'costPrice', 'sellingPrice', 'wholesalePrice', 'minWholesaleQty',
-                  'minStockAlert', 'imageUrl', 'loyaltyPoints', 'totalSpent',
-                  'shiftId', 'invoiceNumber', 'cashierId', 'cashierName',
-                  'customerId', 'customerName', 'paymentMethod', 'paidAmount',
-                  'changeAmount', 'itemsJson', 'tableNumber', 'orderNotes'
+                AND LOWER(column_name) IN (
+                  'userid', 'organizationid', 'orgid', 'businesstype', 
+                  'createdat', 'updatedat', 'avatarurl', 'logourl', 
+                  'isactive', 'joinedat', 'deactivatedat', 'deactivatedreason',
+                  'outletid', 'businessname', 'businessaddress', 'taxpercentage',
+                  'taxenabled', 'roundingrule', 'receiptpapersize', 'receiptheader',
+                  'receiptfooter', 'receiptshowlogo', 'lowstockthresholddefault',
+                  'approvaldiscountthresholdpercent', 'approvalrequirevoid',
+                  'sessiontimeoutminutes', 'activemodules', 'costprice', 'sellingprice',
+                  'wholesaleprice', 'minwholesaleqty', 'minstockalert', 'imageurl',
+                  'loyaltypoints', 'totalspent', 'shiftid', 'invoicenumber',
+                  'cashierid', 'cashiername', 'customerid', 'customername',
+                  'paymentmethod', 'paidamount', 'changeamount', 'itemsjson',
+                  'tablenumber', 'ordernotes', 'voidreason', 'voidapprovedby',
+                  'contactperson', 'paymentterms', 'startingcash', 'expectedcash',
+                  'actualcash', 'discrepancy', 'totalsales', 'openedat', 'closedat'
                 )
           ) LOOP
               EXECUTE 'ALTER TABLE public.' || quote_ident(r.table_name) || ' ALTER COLUMN ' || quote_ident(r.column_name) || ' DROP NOT NULL';
@@ -315,8 +331,23 @@ export async function ensureTablesExist() {
       END $$;
     `);
 
+    // 4. Synchronize data between legacy columns and snake_case columns if present
+    await client.unsafe(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'team_members' AND column_name = 'userid') THEN
+          EXECUTE 'UPDATE team_members SET user_id = userid WHERE user_id IS NULL AND userid IS NOT NULL';
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'team_members' AND column_name = 'organizationid') THEN
+          EXECUTE 'UPDATE team_members SET organization_id = organizationid WHERE organization_id IS NULL AND organizationid IS NOT NULL';
+        END IF;
+      EXCEPTION WHEN OTHERS THEN
+        NULL;
+      END $$;
+    `);
+
     tablesInitialized = true;
-    console.log("Supabase DDL, column migration, and legacy constraint relaxation applied successfully.");
+    console.log("Supabase DDL, migrations, and self-healing column constraints applied successfully.");
   } catch (err) {
     console.error("ensureTablesExist error:", err);
   }

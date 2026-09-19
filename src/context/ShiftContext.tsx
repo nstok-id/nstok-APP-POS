@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { loadFromLocalStorage, saveToLocalStorage } from "@/lib/dual-persistence";
+import { useAuth } from "./AuthContext";
 
 export interface ShiftData {
   id: string;
@@ -28,15 +29,17 @@ interface ShiftContextType {
 
 const ShiftContext = createContext<ShiftContextType | null>(null);
 
-const SHIFT_STORAGE_KEY = "nstok_active_shift_v3";
-
 export function ShiftProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [currentShift, setCurrentShift] = useState<ShiftData | null>(null);
 
+  const orgId = user?.organizationId || "org-demo-1";
+  const shiftKey = `nstok_${orgId}_active_shift`;
+
   useEffect(() => {
-    const saved = loadFromLocalStorage<ShiftData | null>(SHIFT_STORAGE_KEY, {
-      id: "shift-init-1",
-      cashierName: "Kasir Pagi",
+    const saved = loadFromLocalStorage<ShiftData | null>(shiftKey, {
+      id: `shift-init-${Date.now()}`,
+      cashierName: user?.name || "Kasir Utama",
       startingCash: 200000,
       expectedCash: 200000,
       totalSales: 0,
@@ -45,7 +48,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
       openedAt: new Date().toISOString(),
     });
     setCurrentShift(saved);
-  }, []);
+  }, [orgId, shiftKey, user?.name]);
 
   const openShift = (startingCash: number, cashierName: string) => {
     const newShift: ShiftData = {
@@ -59,7 +62,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
       openedAt: new Date().toISOString(),
     };
     setCurrentShift(newShift);
-    saveToLocalStorage(SHIFT_STORAGE_KEY, newShift);
+    saveToLocalStorage(shiftKey, newShift);
   };
 
   const closeShift = (actualCash: number, notes?: string): ShiftData => {
@@ -73,7 +76,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
       notes,
     };
     setCurrentShift(closed);
-    saveToLocalStorage(SHIFT_STORAGE_KEY, closed);
+    saveToLocalStorage(shiftKey, closed);
     return closed;
   };
 
@@ -87,7 +90,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
         totalTransactions: prev.totalTransactions + 1,
         expectedCash: isCash ? prev.expectedCash + amount : prev.expectedCash,
       };
-      saveToLocalStorage(SHIFT_STORAGE_KEY, updated);
+      saveToLocalStorage(shiftKey, updated);
       return updated;
     });
   };

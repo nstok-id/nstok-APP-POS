@@ -70,12 +70,13 @@ export default function SettingsPage() {
   };
 
   const handleExportCSV = () => {
-    const transactions = localStorage.getItem("nstok_transactions_v3") || "[]";
+    const orgId = user?.organizationId || "org-demo-1";
+    const transactions = localStorage.getItem(`nstok_${orgId}_transactions`) || "[]";
     const blob = new Blob([transactions], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `backup-nstok-pos-${Date.now()}.json`;
+    a.download = `backup-nstok-pos-${orgId}-${Date.now()}.json`;
     a.click();
   };
 
